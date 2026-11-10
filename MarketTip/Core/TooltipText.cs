@@ -78,11 +78,10 @@ public static class TooltipText
     /// <summary>
     /// Le bloc ajouté à l'infobulle. Des lignes courtes, pour tenir dans la largeur de l'infobulle du jeu :
     /// <code>
-    /// Marché (Omega)
-    ///   Prix : 2 500 (il y a 2 h)
-    ///   Moins cher : 2 033 Spriggan
-    ///   Dernière vente : 8 000 (il y a 8 h)
-    ///   Ventes par jour : 6,5
+    /// Prix : 2 500 Omega (il y a 2 h)
+    /// Moins cher : 2 033 Spriggan
+    /// Dernière vente : 8 000 (il y a 8 h)
+    /// Ventes par jour : 6,5
     /// </code>
     /// </summary>
     public static List<Segment> Build(MarketData? data, LookupState state, bool hq, ITooltipOptions options, DateTime now)
@@ -94,13 +93,13 @@ public static class TooltipText
                 return output;
 
             case LookupState.Failed:
-                output.Add(new(SegmentKind.Dim, "Marché : prix indisponibles pour le moment."));
+                output.Add(new(SegmentKind.Dim, "Prix du marché indisponibles pour le moment."));
                 return output;
         }
 
         if (data == null)
         {
-            output.Add(new(SegmentKind.Dim, "Marché : recherche des prix..."));
+            output.Add(new(SegmentKind.Dim, "Recherche des prix du marché..."));
             return output;
         }
 
@@ -112,7 +111,6 @@ public static class TooltipText
     {
         public void Write()
         {
-            output.Add(new(SegmentKind.Text, $"Marché ({data.World})"));
             WritePrice();
             WriteCheaper();
             WriteLastSale();
@@ -137,11 +135,12 @@ public static class TooltipText
             var listing = Pick(data.Cheapest.World);
             if (!listing.HasValue)
             {
-                output.Add(new(SegmentKind.Dim, "aucune annonce"));
+                output.Add(new(SegmentKind.Dim, $"aucune annonce sur {data.World}"));
                 return;
             }
 
             Prices(data.Cheapest.World);
+            output.Add(new(SegmentKind.Text, " " + data.World));
             Time(listing.Value.Time);
         }
 
@@ -197,7 +196,7 @@ public static class TooltipText
 
         // ------------------------------------------------------------ Écriture
 
-        private void Line(string text) => output.Add(new(SegmentKind.Text, "\n  " + text));
+        private void Line(string text) => output.Add(new(SegmentKind.Text, (output.Count > 0 ? "\n" : string.Empty) + text));
 
         // La qualité survolée est mise en valeur ; l'autre suit si les deux sont affichées.
         private void Values<T>(Qualities<T> qualities, Func<T, double> value, Func<double, string> format)
