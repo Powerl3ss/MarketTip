@@ -63,13 +63,6 @@ public sealed record ItemContext
     public long VendorPrice { get; init; }
 }
 
-    /// <summary>Coût des matériaux pour fabriquer un exemplaire.</summary>
-    public Optional<long> MaterialCost { get; init; }
-
-    /// <summary>Le prix de certains matériaux est inconnu : le coût est un minimum.</summary>
-    public bool MaterialCostPartial { get; init; }
-}
-
 /// <summary>Construit le texte des prix ajouté sous l'infobulle d'un objet. Sans le jeu : testé à part.</summary>
 public static class TooltipText
 {
