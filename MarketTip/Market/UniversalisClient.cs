@@ -45,7 +45,7 @@ public sealed class UniversalisClient : IDisposable
     };
 
     /// <summary>Appelé quand les centres de données d'Universalis sont connus : les prix déjà reçus sont à redemander.</summary>
-    public event Action? DatacentersLoaded;
+    public event System.Action? DatacentersLoaded;
     private readonly HappyEyeballsCallback happyEyeballs = new();
     private readonly HttpClient http;
 
