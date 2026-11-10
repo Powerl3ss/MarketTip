@@ -1,0 +1,357 @@
+using System;
+using System.Collections.Generic;
+using System.Numerics;
+using Dalamud.Bindings.ImGui;
+using Dalamud.Game.Text;
+using Dalamud.Interface;
+using Dalamud.Interface.Utility.Raii;
+using Dalamud.Utility;
+using MarketTip.Core;
+
+namespace MarketTip.Windows;
+
+public sealed partial class ConfigWindow
+{
+    // Couleur des prix mis en valeur dans l'aperçu, proche de celle du jeu.
+    private static readonly Vector4 PreviewHighlight = new(1f, 0.87f, 0.56f, 1f);
+
+    private bool previewHq;
+
+    // =================================================================== Prix affichés
+
+    private void DrawHomePage()
+    {
+        var changed = false;
+
+        Card(() =>
+        {
+            changed |= ToggleRow("Afficher les prix dans les infobulles", "Raccourci : /markettip", Cfg.Enabled, v => Cfg.Enabled = v);
+            DrawStatusRow();
+        }, glow: true);
+
+        SectionTitle("Aperçu", FontAwesomeIcon.Eye);
+        Card(() =>
+        {
+            var width = 340f * S;
+            SettingRow("Objet survolé", "Exemple avec de faux prix, pour voir l'effet des réglages.", width, () =>
+            {
+                var chosen = Segmented("##previewQuality", new[]
+                {
+                    ("Qualité normale", FontAwesomeIcon.Circle),
+                    ("Haute qualité", FontAwesomeIcon.Star),
+                }, previewHq ? 1 : 0, width);
+                previewHq = chosen == 1;
+            }, FrameH + 20f * S);
+            DrawPreview();
+        });
+
+        SectionTitle("Prix les plus bas", FontAwesomeIcon.Tag);
+        Card(() =>
+        {
+            changed |= ToggleRow("Sur le monde", "L'annonce la moins chère sur le monde de référence (voir Données).", Cfg.ShowCheapestWorld, v => Cfg.ShowCheapestWorld = v);
+            changed |= ToggleRow("Dans le centre de données", "Seulement si elle est sur un autre monde.", Cfg.ShowCheapestDatacenter, v => Cfg.ShowCheapestDatacenter = v);
+            changed |= ToggleRow("Dans la région", "Seulement si elle est dans un autre centre de données. Changer de centre de données n'est pas toujours possible.", Cfg.ShowCheapestRegion, v => Cfg.ShowCheapestRegion = v);
+        });
+
+        SectionTitle("Dernière vente", FontAwesomeIcon.History);
+        Card(() =>
+        {
+            changed |= ToggleRow("Sur le monde", null, Cfg.ShowLastSaleWorld, v => Cfg.ShowLastSaleWorld = v);
+            changed |= ToggleRow("Dans le centre de données", "Seulement si elle a eu lieu sur un autre monde.", Cfg.ShowLastSaleDatacenter, v => Cfg.ShowLastSaleDatacenter = v);
+            changed |= ToggleRow("Dans la région", "Seulement si elle a eu lieu dans un autre centre de données.", Cfg.ShowLastSaleRegion, v => Cfg.ShowLastSaleRegion = v);
+        });
+
+        SectionTitle("Statistiques", FontAwesomeIcon.ChartLine);
+        Card(() =>
+        {
+            changed |= ScopeRow("Prix moyen", "Sur les ventes récentes.", "##average", Cfg.AveragePriceScope, v => Cfg.AveragePriceScope = v);
+            changed |= ScopeRow("Ventes par jour", "Pour savoir si l'objet part vite.", "##velocity", Cfg.DailySalesScope, v => Cfg.DailySalesScope = v);
+        });
+
+        SectionTitle("Présentation", FontAwesomeIcon.Font);
+        Card(() =>
+        {
+            changed |= ToggleRow("Qualité normale et haute qualité", "Sinon, seulement la qualité de l'objet survolé. Celle-ci est toujours mise en valeur.", Cfg.ShowBothQualities, v => Cfg.ShowBothQualities = v);
+            changed |= ToggleRow("Ancienneté des prix", "« il y a 2 h » : depuis le dernier relevé du marché ou la vente.", Cfg.ShowAge, v => Cfg.ShowAge = v);
+            changed |= ToggleRow("Nom du centre de données", "À côté du monde, pour les prix trouvés dans la région.", Cfg.ShowDatacenterName, v => Cfg.ShowDatacenterName = v);
+        });
+
+        if (changed)
+            SaveSoon();
+    }
+
+    private void DrawStatusRow()
+    {
+        var lookup = plugin.Lookup;
+        var (text, color) = lookup.LastAnswer switch
+        {
+            null => ("En attente", TextDim),
+            _ when lookup.LastFailed => ("Universalis ne répond pas", Danger),
+            _ => ("Universalis connecté", Success),
+        };
+        var world = plugin.Universalis.WorldName(lookup.WorldId);
+        Row(() =>
+        {
+            ImGui.TextUnformatted("Prix en mémoire");
+            TextDimmed(string.IsNullOrEmpty(world)
+                ? $"{lookup.CachedCount} objets. Les prix sont lus une fois connecté."
+                : $"{lookup.CachedCount} objets, vus depuis {world}. Ils sont redemandés au bout d'une heure.");
+        }, PillWidth(text, dot: true), () => Pill(text, color, dot: true, centerInFrame: true));
+    }
+
+    private bool ScopeRow(string title, string description, string id, Scope? value, Action<Scope?> setter)
+    {
+        var changed = false;
+        var width = 420f * S;
+        SettingRow(title, description, width, () =>
+        {
+            var current = value switch
+            {
+                null => 0,
+                Scope.World => 1,
+                Scope.Datacenter => 2,
+                _ => 3,
+            };
+            var chosen = Segmented(id, new[]
+            {
+                ("Non", FontAwesomeIcon.EyeSlash),
+                ("Monde", FontAwesomeIcon.Home),
+                ("Centre", FontAwesomeIcon.Server),
+                ("Région", FontAwesomeIcon.Globe),
+            }, current, width);
+            if (chosen != current)
+            {
+                setter(chosen switch
+                {
+                    1 => Scope.World,
+                    2 => Scope.Datacenter,
+                    3 => Scope.Region,
+                    _ => null,
+                });
+                changed = true;
+            }
+        }, FrameH + 20f * S);
+        return changed;
+    }
+
+    // ------------------------------------------------------------ Aperçu
+
+    private void DrawPreview()
+    {
+        var segments = TooltipText.Build(PreviewData(), LookupState.Ready, previewHq, Cfg, DateTime.Now);
+
+        // Un cadre sombre comme l'infobulle du jeu, avec le texte des prix tel qu'il y sera ajouté.
+        var pad = new Vector2(14f, 10f) * S;
+        var drawList = ImGui.GetWindowDrawList();
+        var start = ImGui.GetCursorScreenPos();
+        drawList.ChannelsSplit(2);
+        drawList.ChannelsSetCurrent(1);
+        ImGui.SetCursorScreenPos(start + pad);
+        ImGui.BeginGroup();
+        using (ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, new Vector2(0f, 3f * S)))
+            DrawSegments(segments);
+        ImGui.EndGroup();
+        var end = new Vector2(start.X + cardInner, ImGui.GetItemRectMax().Y + pad.Y);
+        drawList.ChannelsSetCurrent(0);
+        drawList.AddRectFilled(start, end, Col(new Vector4(0.05f, 0.05f, 0.06f, 0.92f)), 10f * S);
+        drawList.AddRect(start, end, Col(Line), 10f * S);
+        drawList.ChannelsMerge();
+        ImGui.SetCursorScreenPos(new Vector2(start.X, end.Y));
+        ImGui.Dummy(new Vector2(cardInner, 4f * S));
+    }
+
+    private static void DrawSegments(List<Segment> segments)
+    {
+        var lineStart = true;
+        foreach (var segment in segments)
+        {
+            var (text, color) = segment.Kind switch
+            {
+                SegmentKind.Highlight => (segment.Text, PreviewHighlight),
+                SegmentKind.Dim => (segment.Text, TextDim),
+                SegmentKind.CrossWorldIcon => (SeIconChar.CrossWorld.ToIconString(), TextMain),
+                SegmentKind.LoadingIcon or SegmentKind.WarningIcon => (string.Empty, TextMain),
+                _ => (segment.Text, TextMain),
+            };
+
+            var parts = text.Split('\n');
+            for (var i = 0; i < parts.Length; i++)
+            {
+                if (i > 0)
+                    lineStart = true;
+                if (parts[i].Length == 0)
+                    continue;
+                if (!lineStart)
+                    ImGui.SameLine(0f, 0f);
+                ImGui.TextColored(color, parts[i]);
+                lineStart = false;
+            }
+        }
+    }
+
+    // De faux prix, avec les vrais noms du monde de référence quand ils sont connus.
+    private MarketData PreviewData()
+    {
+        var worldId = plugin.Lookup.WorldId;
+        var world = Or(plugin.Universalis.WorldName(worldId), "Moogle");
+        var dc = Or(plugin.Universalis.DatacenterName(worldId), "Chaos");
+        var region = Or(plugin.Universalis.RegionName(worldId), "Europe");
+        var otherWorld = world == "Cerberus" ? "Omega" : "Cerberus";
+        var otherDc = dc == "Light" ? "Chaos" : "Light";
+        var regionWorld = otherDc == "Light" ? "Odin" : "Ragnarok";
+        var now = DateTime.Now;
+
+        Listing L(long price, string w, string d, double hoursAgo) => new(price, w, d, now.AddHours(-hoursAgo));
+
+        return new MarketData
+        {
+            World = world,
+            Datacenter = dc,
+            Region = region,
+            Cheapest = new Scopes<Listing>
+            {
+                World = new() { Nq = L(1_450, world, dc, 2), Hq = L(2_300, world, dc, 2) },
+                Datacenter = new() { Nq = L(1_180, otherWorld, dc, 5), Hq = L(1_990, otherWorld, dc, 5) },
+                Region = new() { Nq = L(990, regionWorld, otherDc, 1), Hq = L(1_750, regionWorld, otherDc, 1) },
+            },
+            LastSale = new Scopes<Listing>
+            {
+                World = new() { Nq = L(1_400, world, dc, 0.4), Hq = L(2_250, world, dc, 26) },
+                Datacenter = new() { Nq = L(1_200, otherWorld, dc, 0.1), Hq = L(2_000, otherWorld, dc, 3) },
+                Region = new() { Nq = L(1_000, regionWorld, otherDc, 0.05), Hq = L(1_800, regionWorld, otherDc, 7) },
+            },
+            AveragePrice = new Scopes<double>
+            {
+                World = new() { Nq = 1_420d, Hq = 2_280d },
+                Datacenter = new() { Nq = 1_260d, Hq = 2_060d },
+                Region = new() { Nq = 1_150d, Hq = 1_940d },
+            },
+            DailySales = new Scopes<double>
+            {
+                World = new() { Nq = 6.5, Hq = 1.2 },
+                Datacenter = new() { Nq = 38d, Hq = 9.4 },
+                Region = new() { Nq = 145d, Hq = 31d },
+            },
+        };
+    }
+
+    private static string Or(string value, string fallback) => string.IsNullOrEmpty(value) ? fallback : value;
+
+    // =================================================================== Données
+
+    private void DrawDataPage()
+    {
+        var changed = false;
+
+        SectionTitle("Monde de référence", FontAwesomeIcon.Home);
+        Card(() =>
+        {
+            var width = 360f * S;
+            SettingRow("Prix lus depuis", "Le monde actuel suit les visites sur d'autres mondes. Les prix déjà reçus sont alors redemandés.", width, () =>
+            {
+                var chosen = Segmented("##world", new[]
+                {
+                    ("Monde d'origine", FontAwesomeIcon.Home),
+                    ("Monde actuel", FontAwesomeIcon.MapMarkerAlt),
+                }, Cfg.UseCurrentWorld ? 1 : 0, width);
+                if (chosen != (Cfg.UseCurrentWorld ? 1 : 0))
+                {
+                    Cfg.UseCurrentWorld = chosen == 1;
+                    changed = true;
+                }
+            }, FrameH + 20f * S);
+        });
+
+        SectionTitle("Mise à jour", FontAwesomeIcon.SyncAlt);
+        Card(() =>
+        {
+            changed |= ToggleRow("Demander les prix de l'inventaire à l'avance", "À la connexion et à l'ouverture de l'inventaire, des sacoches ou d'un servant : les prix s'affichent alors sans attendre.", Cfg.PrefetchInventory, v => Cfg.PrefetchInventory = v);
+            changed |= ToggleRow("Actualiser avec Alt", "Garder Alt enfoncé en survolant un objet redemande ses prix.", Cfg.RefreshWithAlt, v => Cfg.RefreshWithAlt = v);
+            if (FancyButton("##clear", "Vider les prix en mémoire", FontAwesomeIcon.Trash, ButtonSize("Vider les prix en mémoire", FontAwesomeIcon.Trash), primary: false))
+                plugin.Lookup.Clear();
+        });
+
+        SectionTitle("D'où viennent les prix", FontAwesomeIcon.Database);
+        Card(() =>
+        {
+            TextDimmed("Les prix viennent d'Universalis, un site qui rassemble les relevés du marché envoyés par les joueurs qui ont un plugin comme Dalamud. Un prix peut donc dater : l'ancienneté affichée à côté indique le dernier relevé.");
+            TextDimmed("MarketTip ne fait que lire ces prix : il envoie seulement le monde de référence et les objets dont il cherche le prix.");
+            if (FancyButton("##universalis", "Ouvrir Universalis", FontAwesomeIcon.ExternalLinkAlt, ButtonSize("Ouvrir Universalis", FontAwesomeIcon.ExternalLinkAlt), primary: false))
+                Util.OpenLink("https://universalis.app");
+        });
+
+        if (changed)
+            SaveSoon();
+    }
+
+    // =================================================================== Apparence
+
+    private void DrawAppearancePage()
+    {
+        var changed = false;
+
+        SectionTitle("Fenêtre de réglages", FontAwesomeIcon.Cog);
+        Card(() =>
+        {
+            changed |= ColorRow("Couleur d'accent", null, Cfg.AccentColor, v => Cfg.AccentColor = v);
+            changed |= ToggleRow("Fond animé", "Halos lumineux et particules derrière les réglages.", Cfg.AnimatedSettingsBackground, v => Cfg.AnimatedSettingsBackground = v);
+            changed |= SliderRow("Opacité du fond", "Derrière les panneaux. 0 : le jeu se voit entièrement.", Cfg.SettingsOpacity, 0f, 1f, "%.2f", v => Cfg.SettingsOpacity = v);
+        });
+
+        if (changed)
+            SaveSoon();
+    }
+
+    // =================================================================== À propos
+
+    private void DrawAboutPage()
+    {
+        var version = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
+        Card(() =>
+        {
+            var start = ImGui.GetCursorPos();
+            DrawLogo(64f * S);
+            ImGui.SameLine(0, 16f * S);
+            ImGui.BeginGroup();
+            ImGui.SetCursorPosY(start.Y + 6f * S);
+            using (heroFont.Push())
+                ImGui.TextUnformatted("MarketTip");
+            ImGui.SameLine(0, 10f * S);
+            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 2f * S);
+            Chip($"Version {version}");
+            TextDimmed("Les prix du marché dans l'infobulle des objets, en français. Les prix viennent d'Universalis.");
+            ImGui.Dummy(new Vector2(0f, 2f * S));
+            // Les lignes des crédits se suivent de près.
+            using (ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, new Vector2(ImGui.GetStyle().ItemSpacing.X, 2f * S)))
+            {
+                ImGui.TextUnformatted("Créé par Powerl3ss.");
+                TextDimmed("Claude, l'IA d'Anthropic, a grandement participé à son développement.");
+            }
+
+            TextDimmed("L'ajout du texte dans l'infobulle du jeu reprend le principe de Price Insight (Kouzukii, licence MIT).");
+            ImGui.EndGroup();
+        });
+
+        SectionTitle("Commandes", FontAwesomeIcon.Terminal);
+        Card(() =>
+        {
+            CommandRow("/markettip", "Affiche ou masque les prix dans les infobulles");
+            CommandRow("/markettip config", "Ouvre ces réglages");
+            CommandRow("/markettip clear", "Vide les prix en mémoire");
+        });
+
+        if (FancyButton("##repo", "Ouvrir la page GitHub", FontAwesomeIcon.ExternalLinkAlt, ButtonSize("Ouvrir la page GitHub", FontAwesomeIcon.ExternalLinkAlt), primary: false))
+            Util.OpenLink(RepoUrl);
+    }
+
+    /// <summary>Une commande et ce qu'elle fait, sur une ligne simple : les commandes se suivent de près.</summary>
+    private void CommandRow(string command, string description)
+    {
+        using (ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, new Vector2(16f * S, 4f * S)))
+        {
+            ImGui.TextColored(Accent, command);
+            ImGui.SameLine();
+            ImGui.TextColored(TextDim, description);
+        }
+    }
+}
