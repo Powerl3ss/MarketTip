@@ -31,23 +31,17 @@ public readonly record struct Segment(SegmentKind Kind, string Text = "");
 /// <summary>Les réglages qui décident des lignes affichées dans l'infobulle.</summary>
 public interface ITooltipOptions
 {
-    bool ShowCheapestWorld { get; }
-    bool ShowCheapestDatacenter { get; }
-    bool ShowCheapestRegion { get; }
-    bool ShowLastSaleWorld { get; }
-    bool ShowLastSaleDatacenter { get; }
-    bool ShowLastSaleRegion { get; }
+    /// <summary>Jusqu'où chercher l'annonce la moins chère : le monde seul, le centre de données ou la région.</summary>
+    Scope SearchScope { get; }
 
-    /// <summary>Portée du prix moyen, ou null pour ne pas l'afficher.</summary>
-    Scope? AveragePriceScope { get; }
+    bool ShowLastSale { get; }
+    bool ShowDailySales { get; }
+    bool ShowAveragePrice { get; }
 
-    /// <summary>Portée du nombre de ventes par jour, ou null pour ne pas l'afficher.</summary>
-    Scope? DailySalesScope { get; }
-
+    /// <summary>Les deux qualités, au lieu de la seule qualité survolée.</summary>
     bool ShowBothQualities { get; }
+
     bool ShowAge { get; }
-    bool ShowDatacenterName { get; }
-    bool RefreshWithAlt { get; }
 }
 
 /// <summary>Construit le texte des prix ajouté sous l'infobulle d'un objet. Sans le jeu : testé à part.</summary>
@@ -81,6 +75,16 @@ public static class TooltipText
         return "à l'instant";
     }
 
+    /// <summary>
+    /// Le bloc ajouté à l'infobulle. Des lignes courtes, pour tenir dans la largeur de l'infobulle du jeu :
+    /// <code>
+    /// Marché (Omega)
+    ///   Prix : 2 500 (il y a 2 h)
+    ///   Moins cher : 2 033 Spriggan
+    ///   Dernière vente : 8 000 (il y a 8 h)
+    ///   Ventes par jour : 6,5
+    /// </code>
+    /// </summary>
     public static List<Segment> Build(MarketData? data, LookupState state, bool hq, ITooltipOptions options, DateTime now)
     {
         var output = new List<Segment>();
@@ -90,28 +94,17 @@ public static class TooltipText
                 return output;
 
             case LookupState.Failed:
-                output.Add(new(SegmentKind.WarningIcon));
-                output.Add(new(SegmentKind.Dim, " Prix indisponibles : Universalis ne répond pas."));
-                if (options.RefreshWithAlt)
-                    output.Add(new(SegmentKind.Dim, "\nAlt pour réessayer."));
+                output.Add(new(SegmentKind.Dim, "Marché : prix indisponibles pour le moment."));
                 return output;
         }
 
         if (data == null)
         {
-            output.Add(new(SegmentKind.LoadingIcon));
-            output.Add(new(SegmentKind.Dim, " Recherche des prix du marché..."));
+            output.Add(new(SegmentKind.Dim, "Marché : recherche des prix..."));
             return output;
         }
 
         new Writer(data, hq, options, now, output).Write();
-
-        if (output.Count == 0)
-        {
-            output.Add(new(SegmentKind.Dim, "Aucun prix connu pour cet objet."));
-            output.Add(new(SegmentKind.Dim, "\nConsulter le marché en jeu met les prix à jour."));
-        }
-
         return output;
     }
 
@@ -119,10 +112,12 @@ public static class TooltipText
     {
         public void Write()
         {
-            WriteCheapest();
-            WriteLastSales();
-            WriteStatistic("Prix moyen", data.AveragePrice, options.AveragePriceScope, value => Gil((long)Math.Round(value)));
-            WriteStatistic("Ventes par jour", data.DailySales, options.DailySalesScope, Decimal);
+            output.Add(new(SegmentKind.Text, $"Marché ({data.World})"));
+            WritePrice();
+            WriteCheaper();
+            WriteLastSale();
+            WriteNumber("Ventes par jour", options.ShowDailySales, data.DailySales.World, Decimal);
+            WriteNumber("Prix moyen", options.ShowAveragePrice, data.AveragePrice.World, value => Gil((long)Math.Round(value)));
         }
 
         // La qualité survolée, sinon l'autre si les deux sont affichées.
@@ -135,166 +130,100 @@ public static class TooltipText
             return hq ? qualities.Nq : qualities.Hq;
         }
 
-        private void WriteCheapest()
+        // Le prix sur le monde de référence : toujours affiché, c'est celui auquel on vend.
+        private void WritePrice()
         {
-            var header = false;
-            void Header()
+            Line("Prix : ");
+            var listing = Pick(data.Cheapest.World);
+            if (!listing.HasValue)
             {
-                if (header)
-                    return;
-                NewSection("Prix au marché");
-                header = true;
-            }
-
-            var dcWorld = Pick(data.Cheapest.Datacenter);
-            var regionDc = Pick(data.Cheapest.Region);
-            var cheapestWorld = dcWorld.HasValue ? dcWorld.Value.World : null;
-            var cheapestDc = regionDc.HasValue ? regionDc.Value.Datacenter : null;
-
-            // Moins cher dans la région, s'il est dans un autre centre de données.
-            if (options.ShowCheapestRegion && cheapestDc != null && cheapestDc != data.Datacenter)
-            {
-                Header();
-                var listing = regionDc.Value;
-                Label("Moins cher", listing.World, cheapestDc);
-                Prices(data.Cheapest.Region, l => l.Price);
-                Time(listing.Time);
-            }
-
-            // Moins cher dans le centre de données, s'il est sur un autre monde.
-            var showDc = options.ShowCheapestDatacenter || (options.ShowCheapestRegion && cheapestDc == data.Datacenter);
-            if (showDc && cheapestWorld != null && cheapestWorld != data.World)
-            {
-                Header();
-                Label("Moins cher", cheapestWorld, null);
-                Prices(data.Cheapest.Datacenter, l => l.Price);
-                Time(dcWorld.Value.Time);
-            }
-
-            // Sur le monde du joueur : aussi quand le moins cher du centre de données est déjà chez lui.
-            var world = Pick(data.Cheapest.World);
-            var showWorld = options.ShowCheapestWorld || (showDc && cheapestWorld == data.World);
-            if (showWorld && world.HasValue)
-            {
-                Header();
-                Line($"Sur {data.World} : ");
-                Prices(data.Cheapest.World, l => l.Price);
-                Time(world.Value.Time);
-            }
-        }
-
-        private void WriteLastSales()
-        {
-            var header = false;
-            void Header()
-            {
-                if (header)
-                    return;
-                NewSection("Dernière vente");
-                header = true;
-            }
-
-            var dcSale = Pick(data.LastSale.Datacenter);
-            var regionSale = Pick(data.LastSale.Region);
-            var saleWorld = dcSale.HasValue ? dcSale.Value.World : null;
-            var saleDc = regionSale.HasValue ? regionSale.Value.Datacenter : null;
-
-            if (options.ShowLastSaleRegion && saleDc != null && saleDc != data.Datacenter)
-            {
-                Header();
-                Label("Dans la région", regionSale.Value.World, saleDc);
-                Prices(data.LastSale.Region, l => l.Price);
-                Time(regionSale.Value.Time);
-            }
-
-            var showDc = options.ShowLastSaleDatacenter || (options.ShowLastSaleRegion && saleDc == data.Datacenter);
-            if (showDc && saleWorld != null && saleWorld != data.World)
-            {
-                Header();
-                Label("Dans le centre de données", saleWorld, null);
-                Prices(data.LastSale.Datacenter, l => l.Price);
-                Time(dcSale.Value.Time);
-            }
-
-            var world = Pick(data.LastSale.World);
-            var showWorld = options.ShowLastSaleWorld || (showDc && saleWorld == data.World);
-            if (showWorld && world.HasValue)
-            {
-                Header();
-                Line($"Sur {data.World} : ");
-                Prices(data.LastSale.World, l => l.Price);
-                Time(world.Value.Time);
-            }
-        }
-
-        private void WriteStatistic(string title, Scopes<double> values, Scope? scope, Func<double, string> format)
-        {
-            if (scope is not { } s)
+                output.Add(new(SegmentKind.Dim, "aucune annonce"));
                 return;
-            var qualities = values.Get(s);
-            if (!Pick(qualities).HasValue)
+            }
+
+            Prices(data.Cheapest.World);
+            Time(listing.Value.Time);
+        }
+
+        // Moins cher ailleurs, dans la portée choisie. Rien si le monde de référence est déjà le moins cher.
+        private void WriteCheaper()
+        {
+            if (options.SearchScope == Scope.World)
                 return;
 
-            NewSection($"{title} ({ScopeName(s)}) : ");
-            Prices(qualities, v => v, format, withGil: false);
+            var qualities = data.Cheapest.Get(options.SearchScope);
+            var best = Pick(qualities);
+            if (!best.HasValue)
+                return;
+            var listing = best.Value;
+            if (listing.World == null || listing.World == data.World)
+                return;
+
+            var home = Pick(data.Cheapest.World);
+            if (home.HasValue && home.Value.Price <= listing.Price)
+                return;
+
+            // Une seule qualité ici, pour que la ligne reste courte.
+            var isHq = hq ? qualities.Hq.HasValue : !qualities.Nq.HasValue;
+            Line("Moins cher : ");
+            output.Add(new(SegmentKind.Highlight, (isHq ? HqIcon.ToString() : string.Empty) + Gil(listing.Price)));
+            // Le centre de données n'est précisé que si ce n'est pas celui du joueur.
+            var place = listing.Datacenter != null && listing.Datacenter != data.Datacenter
+                ? $"{listing.World}, {listing.Datacenter}"
+                : listing.World;
+            output.Add(new(SegmentKind.Text, " " + place));
         }
 
-        private string ScopeName(Scope scope) => scope switch
+        private void WriteLastSale()
         {
-            Scope.World => data.World,
-            Scope.Datacenter => data.Datacenter,
-            _ => data.Region,
-        };
+            if (!options.ShowLastSale)
+                return;
+            var sale = Pick(data.LastSale.World);
+            if (!sale.HasValue)
+                return;
+
+            Line("Dernière vente : ");
+            Prices(data.LastSale.World);
+            Time(sale.Value.Time);
+        }
+
+        private void WriteNumber(string title, bool shown, Qualities<double> qualities, Func<double, string> format)
+        {
+            if (!shown || !Pick(qualities).HasValue)
+                return;
+            Line(title + " : ");
+            Values(qualities, v => v, format);
+        }
 
         // ------------------------------------------------------------ Écriture
 
-        private void NewSection(string title)
-        {
-            if (output.Count > 0)
-                output.Add(new(SegmentKind.Text, "\n"));
-            output.Add(new(SegmentKind.Text, title));
-        }
-
         private void Line(string text) => output.Add(new(SegmentKind.Text, "\n  " + text));
 
-        // « Moins cher (⇄ Monde Centre) : »
-        private void Label(string title, string? world, string? datacenter)
-        {
-            Line(title + " (");
-            output.Add(new(SegmentKind.CrossWorldIcon));
-            var place = world ?? "?";
-            if (datacenter != null && options.ShowDatacenterName)
-                place += " " + datacenter;
-            output.Add(new(SegmentKind.Text, place + ") : "));
-        }
-
-        private void Prices(Qualities<Listing> qualities, Func<Listing, long> price) =>
-            Prices(qualities, l => price(l), value => Number((long)value), withGil: true);
-
-        // La qualité survolée est mise en valeur, l'autre suit si les deux sont affichées.
-        private void Prices<T>(Qualities<T> qualities, Func<T, double> value, Func<double, string>? format = null, bool withGil = true)
+        // La qualité survolée est mise en valeur ; l'autre suit si les deux sont affichées.
+        private void Values<T>(Qualities<T> qualities, Func<T, double> value, Func<double, string> format)
             where T : notnull
         {
-            format ??= v => Number((long)v);
-            var gil = withGil ? GilIcon.ToString() : string.Empty;
             var nq = qualities.Nq;
             var hqValue = qualities.Hq;
             var both = options.ShowBothQualities;
 
             var wroteNq = false;
-            if (nq.HasValue && (both || !hq || !hqValue.HasValue))
+            if (nq.HasValue && (both || !hq))
             {
-                output.Add(new(hq ? SegmentKind.Text : SegmentKind.Highlight, format(value(nq.Value)) + gil));
+                output.Add(new(hq ? SegmentKind.Text : SegmentKind.Highlight, format(value(nq.Value))));
                 wroteNq = true;
             }
 
-            if (hqValue.HasValue && (both || hq || !nq.HasValue))
+            if (hqValue.HasValue && (both || hq))
             {
                 if (wroteNq)
                     output.Add(new(SegmentKind.Text, " / "));
-                output.Add(new(hq ? SegmentKind.Highlight : SegmentKind.Text, HqIcon + format(value(hqValue.Value)) + gil));
+                output.Add(new(hq ? SegmentKind.Highlight : SegmentKind.Text, HqIcon + format(value(hqValue.Value))));
             }
         }
+
+        private void Prices(Qualities<Listing> qualities) =>
+            Values(qualities, l => (double)l.Price, v => Gil((long)v));
 
         private void Time(DateTime? time)
         {

@@ -45,39 +45,30 @@ public sealed partial class ConfigWindow
             DrawPreview();
         });
 
-        // Les deux panneaux ont les mêmes intitulés : chacun a son propre espace d'identifiants, sinon ImGui
-        // confond leurs interrupteurs (même animation, même clic).
-        SectionTitle("Prix les plus bas", FontAwesomeIcon.Tag);
+        SectionTitle("Contenu de l'infobulle", FontAwesomeIcon.Tag);
         Card(() =>
         {
-            using var scope = ImRaii.PushId("cheapest");
-            changed |= ToggleRow("Sur le monde", "L'annonce la moins chère sur le monde de référence (voir Données).", Cfg.ShowCheapestWorld, v => Cfg.ShowCheapestWorld = v);
-            changed |= ToggleRow("Dans le centre de données", "Seulement si elle est sur un autre monde.", Cfg.ShowCheapestDatacenter, v => Cfg.ShowCheapestDatacenter = v);
-            changed |= ToggleRow("Dans la région", "Seulement si elle est dans un autre centre de données. Changer de centre de données n'est pas toujours possible.", Cfg.ShowCheapestRegion, v => Cfg.ShowCheapestRegion = v);
-        });
-
-        SectionTitle("Dernière vente", FontAwesomeIcon.History);
-        Card(() =>
-        {
-            using var scope = ImRaii.PushId("lastSale");
-            changed |= ToggleRow("Sur le monde", null, Cfg.ShowLastSaleWorld, v => Cfg.ShowLastSaleWorld = v);
-            changed |= ToggleRow("Dans le centre de données", "Seulement si elle a eu lieu sur un autre monde.", Cfg.ShowLastSaleDatacenter, v => Cfg.ShowLastSaleDatacenter = v);
-            changed |= ToggleRow("Dans la région", "Seulement si elle a eu lieu dans un autre centre de données.", Cfg.ShowLastSaleRegion, v => Cfg.ShowLastSaleRegion = v);
-        });
-
-        SectionTitle("Statistiques", FontAwesomeIcon.ChartLine);
-        Card(() =>
-        {
-            changed |= ScopeRow("Prix moyen", "Sur les ventes récentes.", "##average", Cfg.AveragePriceScope, v => Cfg.AveragePriceScope = v);
-            changed |= ScopeRow("Ventes par jour", "Pour savoir si l'objet part vite.", "##velocity", Cfg.DailySalesScope, v => Cfg.DailySalesScope = v);
-        });
-
-        SectionTitle("Présentation", FontAwesomeIcon.Font);
-        Card(() =>
-        {
-            changed |= ToggleRow("Qualité normale et haute qualité", "Sinon, seulement la qualité de l'objet survolé. Celle-ci est toujours mise en valeur.", Cfg.ShowBothQualities, v => Cfg.ShowBothQualities = v);
-            changed |= ToggleRow("Ancienneté des prix", "« il y a 2 h » : depuis le dernier relevé du marché ou la vente.", Cfg.ShowAge, v => Cfg.ShowAge = v);
-            changed |= ToggleRow("Nom du centre de données", "À côté du monde, pour les prix trouvés dans la région.", Cfg.ShowDatacenterName, v => Cfg.ShowDatacenterName = v);
+            var width = 420f * S;
+            SettingRow("Chercher moins cher", "Le prix sur ton monde est toujours affiché. Une ligne « Moins cher » s'ajoute si une annonce est moins chère ailleurs. La région comprend tous les centres de données, comme Chaos et Light en Europe.", width, () =>
+            {
+                var current = (int)Cfg.SearchScope;
+                var chosen = Segmented("##scope", new[]
+                {
+                    ("Nulle part", FontAwesomeIcon.Home),
+                    ("Centre de données", FontAwesomeIcon.Server),
+                    ("Région", FontAwesomeIcon.Globe),
+                }, current, width);
+                if (chosen != current)
+                {
+                    Cfg.SearchScope = (Scope)chosen;
+                    changed = true;
+                }
+            }, FrameH + 20f * S);
+            changed |= ToggleRow("Dernière vente", "Le prix de la dernière vente sur ton monde.", Cfg.ShowLastSale, v => Cfg.ShowLastSale = v);
+            changed |= ToggleRow("Ventes par jour", "Pour savoir si l'objet part vite sur ton monde.", Cfg.ShowDailySales, v => Cfg.ShowDailySales = v);
+            changed |= ToggleRow("Prix moyen", "Sur les ventes récentes de ton monde.", Cfg.ShowAveragePrice, v => Cfg.ShowAveragePrice = v);
+            changed |= ToggleRow("Les deux qualités", "Qualité normale et haute qualité. Sinon, seulement celle de l'objet survolé.", Cfg.ShowBothQualities, v => Cfg.ShowBothQualities = v);
+            changed |= ToggleRow("Ancienneté", "« il y a 2 h » : depuis le dernier relevé du marché ou la vente.", Cfg.ShowAge, v => Cfg.ShowAge = v);
         });
 
         if (changed)
@@ -101,41 +92,6 @@ public sealed partial class ConfigWindow
                 ? $"{lookup.CachedCount} objets. Les prix sont lus une fois connecté."
                 : $"{lookup.CachedCount} objets, vus depuis {world}. Ils sont redemandés au bout d'une heure.");
         }, PillWidth(text, dot: true), () => Pill(text, color, dot: true, centerInFrame: true));
-    }
-
-    private bool ScopeRow(string title, string description, string id, Scope? value, Action<Scope?> setter)
-    {
-        var changed = false;
-        var width = 420f * S;
-        SettingRow(title, description, width, () =>
-        {
-            var current = value switch
-            {
-                null => 0,
-                Scope.World => 1,
-                Scope.Datacenter => 2,
-                _ => 3,
-            };
-            var chosen = Segmented(id, new[]
-            {
-                ("Non", FontAwesomeIcon.EyeSlash),
-                ("Monde", FontAwesomeIcon.Home),
-                ("Centre", FontAwesomeIcon.Server),
-                ("Région", FontAwesomeIcon.Globe),
-            }, current, width);
-            if (chosen != current)
-            {
-                setter(chosen switch
-                {
-                    1 => Scope.World,
-                    2 => Scope.Datacenter,
-                    3 => Scope.Region,
-                    _ => null,
-                });
-                changed = true;
-            }
-        }, FrameH + 20f * S);
-        return changed;
     }
 
     // ------------------------------------------------------------ Aperçu
@@ -276,7 +232,6 @@ public sealed partial class ConfigWindow
         Card(() =>
         {
             changed |= ToggleRow("Demander les prix de l'inventaire à l'avance", "À la connexion et à l'ouverture de l'inventaire, des sacoches ou d'un servant : les prix s'affichent alors sans attendre.", Cfg.PrefetchInventory, v => Cfg.PrefetchInventory = v);
-            changed |= ToggleRow("Actualiser avec Alt", "Garder Alt enfoncé en survolant un objet redemande ses prix.", Cfg.RefreshWithAlt, v => Cfg.RefreshWithAlt = v);
             if (FancyButton("##clear", "Vider les prix en mémoire", FontAwesomeIcon.Trash, ButtonSize("Vider les prix en mémoire", FontAwesomeIcon.Trash), primary: false))
                 plugin.Lookup.Clear();
         });

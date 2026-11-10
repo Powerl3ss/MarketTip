@@ -10,18 +10,18 @@ var tests = new (string Name, Action Run)[]
     ("Nombres : décimales à la française", Tests.FrenchDecimals),
     ("Ancienneté : minutes, heures, jours", Tests.Ages),
     ("Objet hors marché : rien n'est ajouté", Tests.NotMarketableIsEmpty),
-    ("Recherche en cours : message d'attente", Tests.LoadingMessage),
-    ("Échec : message, et Alt si activé", Tests.FailedMessage),
+    ("Recherche en cours et échec : une ligne", Tests.StatusMessages),
     ("Prix sur le monde de référence", Tests.WorldPrice),
-    ("Moins cher ailleurs dans le centre de données", Tests.CheaperOnOtherWorld),
-    ("Moins cher sur son monde : pas de ligne en double", Tests.CheapestAtHomeNoDuplicate),
-    ("Région : seulement si autre centre de données", Tests.RegionOnlyIfOtherDatacenter),
-    ("Qualité survolée mise en valeur", Tests.HoveredQualityHighlighted),
-    ("Une seule qualité si demandé", Tests.SingleQuality),
-    ("Haute qualité absente : rien en qualité unique", Tests.MissingHqHidden),
+    ("Aucune annonce sur le monde", Tests.NoListing),
+    ("Moins cher sur un autre monde", Tests.CheaperOnOtherWorld),
+    ("Moins cher dans un autre centre de données", Tests.CheaperInOtherDatacenter),
+    ("Pas de ligne si le monde est déjà le moins cher", Tests.HomeIsCheapest),
+    ("Portée : monde seul, centre de données", Tests.ScopeLimits),
+    ("Qualité survolée seule par défaut", Tests.HoveredQualityOnly),
+    ("Les deux qualités, la survolée mise en valeur", Tests.BothQualities),
+    ("Dernière vente, ventes par jour, prix moyen", Tests.ExtraLines),
     ("Ancienneté masquable", Tests.AgeCanBeHidden),
-    ("Statistiques : prix moyen et ventes par jour", Tests.Statistics),
-    ("Aucun prix connu : message", Tests.NoDataMessage),
+    ("Lignes courtes", Tests.LinesStayShort),
 };
 
 var failed = 0;
@@ -44,23 +44,19 @@ return failed == 0 ? 0 : 1;
 
 internal sealed class Options : ITooltipOptions
 {
-    public bool ShowCheapestWorld { get; set; } = true;
-    public bool ShowCheapestDatacenter { get; set; } = true;
-    public bool ShowCheapestRegion { get; set; }
-    public bool ShowLastSaleWorld { get; set; }
-    public bool ShowLastSaleDatacenter { get; set; }
-    public bool ShowLastSaleRegion { get; set; }
-    public Scope? AveragePriceScope { get; set; }
-    public Scope? DailySalesScope { get; set; }
-    public bool ShowBothQualities { get; set; } = true;
-    public bool ShowAge { get; set; } = true;
-    public bool ShowDatacenterName { get; set; } = true;
-    public bool RefreshWithAlt { get; set; } = true;
+    public Scope SearchScope { get; set; } = Scope.Region;
+    public bool ShowLastSale { get; set; }
+    public bool ShowDailySales { get; set; }
+    public bool ShowAveragePrice { get; set; }
+    public bool ShowBothQualities { get; set; }
+    public bool ShowAge { get; set; }
 }
 
 internal static class Tests
 {
     private static readonly DateTime Now = new(2026, 11, 10, 20, 0, 0);
+    private const string Gil = "\uE049";
+    private const string Hq = "\uE03C";
 
     private static void Check(bool condition, string message = "condition fausse")
     {
@@ -76,31 +72,29 @@ internal static class Tests
 
     private static Listing L(long price, string world, string dc = "Chaos", double hoursAgo = 1) => new(price, world, dc, Now.AddHours(-hoursAgo));
 
-    private static MarketData Data(
-        Qualities<Listing>? world = null, Qualities<Listing>? dc = null, Qualities<Listing>? region = null) => new()
-    {
-        World = "Moogle",
-        Datacenter = "Chaos",
-        Region = "Europe",
-        Cheapest = new Scopes<Listing>
-        {
-            World = world ?? new() { Nq = L(1_500, "Moogle"), Hq = L(2_500, "Moogle") },
-            Datacenter = dc ?? new() { Nq = L(1_500, "Moogle"), Hq = L(2_500, "Moogle") },
-            Region = region ?? new() { Nq = L(1_500, "Moogle"), Hq = L(2_500, "Moogle") },
-        },
-        LastSale = new Scopes<Listing>(),
-        AveragePrice = new Scopes<double>(),
-        DailySales = new Scopes<double>(),
-    };
+    private static Qualities<Listing> Q(Listing nq, Listing? hq = null) =>
+        hq == null ? new() { Nq = nq } : new() { Nq = nq, Hq = hq };
 
-    // Tout le texte, sans les icônes.
-    private static string Text(List<Segment> segments) => string.Concat(segments.Select(s => s.Text));
+    private static MarketData Data(Qualities<Listing>? world = null, Qualities<Listing>? dc = null, Qualities<Listing>? region = null)
+    {
+        var home = world ?? Q(L(1_500, "Omega"), L(2_500, "Omega"));
+        return new MarketData
+        {
+            World = "Omega",
+            Datacenter = "Chaos",
+            Region = "Europe",
+            Cheapest = new Scopes<Listing> { World = home, Datacenter = dc ?? home, Region = region ?? dc ?? home },
+            LastSale = new Scopes<Listing> { World = Q(L(1_400, "Omega", hoursAgo: 8), L(2_400, "Omega", hoursAgo: 30)) },
+            AveragePrice = new Scopes<double> { World = new() { Nq = 1_420.6, Hq = 2_300d } },
+            DailySales = new Scopes<double> { World = new() { Nq = 6.5 } },
+        };
+    }
+
+    private static string Text(MarketData? data, Options? options = null, bool hq = false, LookupState state = LookupState.Ready) =>
+        string.Concat(Build(data, options, hq, state).Select(s => s.Text));
 
     private static List<Segment> Build(MarketData? data, Options? options = null, bool hq = false, LookupState state = LookupState.Ready) =>
         TooltipText.Build(data, state, hq, options ?? new Options(), Now);
-
-    private const string Gil = "";
-    private const string Hq = "";
 
     public static void ThousandsSeparator()
     {
@@ -127,106 +121,93 @@ internal static class Tests
     public static void NotMarketableIsEmpty() =>
         Check(Build(null, state: LookupState.NotMarketable).Count == 0);
 
-    public static void LoadingMessage()
+    public static void StatusMessages()
     {
-        var segments = Build(null, state: LookupState.Loading);
-        Check(segments.Any(s => s.Kind == SegmentKind.LoadingIcon), "icône de chargement");
-        Check(Text(segments).Contains("Recherche des prix"), Text(segments));
+        Equal("Marché : recherche des prix...", Text(null, state: LookupState.Loading));
+        Equal("Marché : prix indisponibles pour le moment.", Text(null, state: LookupState.Failed));
     }
 
-    public static void FailedMessage()
-    {
-        var text = Text(Build(null, state: LookupState.Failed));
-        Check(text.Contains("Universalis ne répond pas") && text.Contains("Alt"), text);
-        var withoutAlt = Text(Build(null, new Options { RefreshWithAlt = false }, state: LookupState.Failed));
-        Check(!withoutAlt.Contains("Alt"), withoutAlt);
-    }
+    public static void WorldPrice() =>
+        Equal("Marché (Omega)\n  Prix : 1 500" + Gil, Text(Data()));
 
-    public static void WorldPrice()
+    public static void NoListing()
     {
-        var text = Text(Build(Data(), new Options { ShowAge = false }));
-        Equal("Prix au marché\n  Sur Moogle : 1 500" + Gil + " / " + Hq + "2 500" + Gil, text);
+        var text = Text(Data(world: new Qualities<Listing>(), dc: new Qualities<Listing>()));
+        Equal("Marché (Omega)\n  Prix : aucune annonce", text);
     }
 
     public static void CheaperOnOtherWorld()
     {
-        var data = Data(dc: new() { Nq = L(1_100, "Cerberus"), Hq = L(2_000, "Cerberus") });
-        var text = Text(Build(data, new Options { ShowAge = false }));
-        Check(text.Contains("Moins cher (Cerberus) : 1 100" + Gil), text);
-        Check(text.Contains("Sur Moogle : 1 500" + Gil), text);
-        Check(text.IndexOf("Cerberus", StringComparison.Ordinal) < text.IndexOf("Sur Moogle", StringComparison.Ordinal), "le moins cher d'abord");
+        var text = Text(Data(dc: Q(L(1_100, "Spriggan"))));
+        Equal("Marché (Omega)\n  Prix : 1 500" + Gil + "\n  Moins cher : 1 100" + Gil + " Spriggan", text);
     }
 
-    public static void CheapestAtHomeNoDuplicate()
+    public static void CheaperInOtherDatacenter()
     {
-        // Le moins cher du centre de données est sur Moogle : une seule ligne, même sans « Sur le monde ».
-        var text = Text(Build(Data(), new Options { ShowCheapestWorld = false, ShowAge = false }));
-        Check(!text.Contains("Moins cher"), text);
-        Check(text.Split("Sur Moogle").Length == 2, text);
+        var text = Text(Data(dc: Q(L(1_100, "Spriggan")), region: Q(L(900, "Odin", "Light"))));
+        Check(text.EndsWith("\n  Moins cher : 900" + Gil + " Odin, Light"), text);
+        Check(!text.Contains("Spriggan"), text);
+
+        // Sans annonce sur son monde, le moins cher ailleurs reste affiché.
+        var none = Text(Data(world: new Qualities<Listing>(), region: Q(L(900, "Odin", "Light"))));
+        Check(none.Contains("Prix : aucune annonce\n  Moins cher : 900" + Gil + " Odin, Light"), none);
     }
 
-    public static void RegionOnlyIfOtherDatacenter()
+    public static void HomeIsCheapest()
     {
-        var options = new Options { ShowCheapestRegion = true, ShowAge = false };
-        var sameDc = Text(Build(Data(region: new() { Nq = L(900, "Cerberus", "Chaos") }), options));
-        Check(!sameDc.Contains("Cerberus Chaos"), sameDc);
-
-        var otherDc = Text(Build(Data(region: new() { Nq = L(900, "Odin", "Light") }), options));
-        Check(otherDc.Contains("Moins cher (Odin Light) : 900" + Gil), otherDc);
-
-        var noDcName = Text(Build(Data(region: new() { Nq = L(900, "Odin", "Light") }), new Options { ShowCheapestRegion = true, ShowDatacenterName = false }));
-        Check(noDcName.Contains("Moins cher (Odin) : "), noDcName);
+        Check(!Text(Data()).Contains("Moins cher"), "le monde est le moins cher");
+        // À prix égal ailleurs, pas de ligne non plus.
+        Check(!Text(Data(dc: Q(L(1_500, "Spriggan")))).Contains("Moins cher"), "prix égal");
     }
 
-    public static void HoveredQualityHighlighted()
+    public static void ScopeLimits()
     {
-        var nq = Build(Data(), new Options { ShowAge = false });
-        Equal("1 500" + Gil, nq.Single(s => s.Kind == SegmentKind.Highlight).Text);
-
-        var hq = Build(Data(), new Options { ShowAge = false }, hq: true);
-        Equal(Hq + "2 500" + Gil, hq.Single(s => s.Kind == SegmentKind.Highlight).Text);
+        var data = Data(dc: Q(L(1_100, "Spriggan")), region: Q(L(900, "Odin", "Light")));
+        Check(!Text(data, new Options { SearchScope = Scope.World }).Contains("Moins cher"), "monde seul");
+        var dc = Text(data, new Options { SearchScope = Scope.Datacenter });
+        Check(dc.Contains("Moins cher : 1 100" + Gil + " Spriggan") && !dc.Contains("Odin"), dc);
     }
 
-    public static void SingleQuality()
+    public static void HoveredQualityOnly()
     {
-        var text = Text(Build(Data(), new Options { ShowBothQualities = false, ShowAge = false }, hq: true));
-        Equal("Prix au marché\n  Sur Moogle : " + Hq + "2 500" + Gil, text);
+        Equal("Marché (Omega)\n  Prix : " + Hq + "2 500" + Gil, Text(Data(), hq: true));
+        // Pas d'annonce en haute qualité : le prix normal n'est pas affiché à sa place.
+        var nqOnly = Q(L(1_500, "Omega"));
+        Equal("Marché (Omega)\n  Prix : aucune annonce", Text(Data(world: nqOnly), hq: true));
     }
 
-    public static void MissingHqHidden()
+    public static void BothQualities()
     {
-        var nqOnly = new Qualities<Listing> { Nq = L(1_500, "Moogle") };
-        var single = Build(Data(nqOnly, nqOnly, nqOnly), new Options { ShowBothQualities = false }, hq: true);
-        Check(Text(single).Contains("Aucun prix connu"), Text(single));
+        var segments = Build(Data(), new Options { ShowBothQualities = true }, hq: true);
+        Equal("Marché (Omega)\n  Prix : 1 500" + Gil + " / " + Hq + "2 500" + Gil, string.Concat(segments.Select(s => s.Text)));
+        Equal(Hq + "2 500" + Gil, segments.Single(s => s.Kind == SegmentKind.Highlight).Text);
+    }
 
-        // Les deux qualités affichées : le prix normal reste visible.
-        var both = Text(Build(Data(nqOnly, nqOnly, nqOnly), new Options { ShowAge = false }, hq: true));
-        Check(both.Contains("Sur Moogle : 1 500" + Gil), both);
+    public static void ExtraLines()
+    {
+        var options = new Options { ShowLastSale = true, ShowDailySales = true, ShowAveragePrice = true };
+        var text = Text(Data(), options);
+        Equal("Marché (Omega)\n  Prix : 1 500" + Gil + "\n  Dernière vente : 1 400" + Gil + "\n  Ventes par jour : 6,5\n  Prix moyen : 1 421" + Gil, text);
+        // En haute qualité : pas de ventes par jour connues, la ligne disparaît.
+        Check(!Text(Data(), options, hq: true).Contains("Ventes par jour"), "ventes HQ inconnues");
     }
 
     public static void AgeCanBeHidden()
     {
-        Check(Text(Build(Data())).Contains("(il y a 1 h)"), "ancienneté affichée");
-        Check(!Text(Build(Data(), new Options { ShowAge = false })).Contains("il y a"), "ancienneté masquée");
+        var text = Text(Data(), new Options { ShowAge = true, ShowLastSale = true });
+        Check(text.Contains("Prix : 1 500" + Gil + " (il y a 1 h)"), text);
+        Check(text.Contains("Dernière vente : 1 400" + Gil + " (il y a 8 h)"), text);
+        Check(!Text(Data()).Contains("il y a"), "ancienneté masquée");
     }
 
-    public static void Statistics()
+    public static void LinesStayShort()
     {
-        var data = Data() with
-        {
-            AveragePrice = new Scopes<double> { Datacenter = new() { Nq = 1_420.6, Hq = 2_300d } },
-            DailySales = new Scopes<double> { World = new() { Nq = 2.5 } },
-        };
-        var options = new Options { AveragePriceScope = Scope.Datacenter, DailySalesScope = Scope.World, ShowAge = false };
-        var text = Text(Build(data, options));
-        Check(text.Contains("\nPrix moyen (Chaos) : 1 421" + Gil + " / " + Hq + "2 300" + Gil), text);
-        Check(text.Contains("\nVentes par jour (Moogle) : 2,5"), text);
-    }
-
-    public static void NoDataMessage()
-    {
-        var empty = new Qualities<Listing>();
-        var text = Text(Build(Data(empty, empty, empty)));
-        Check(text.Contains("Aucun prix connu pour cet objet."), text);
+        // Le pire cas courant : gros prix, deux qualités, autre centre de données, ancienneté.
+        var data = Data(
+            world: Q(L(1_234_567, "Omega"), L(2_345_678, "Omega")),
+            region: Q(L(1_034_567, "Shiva", "Light"), L(2_045_678, "Shiva", "Light")));
+        var options = new Options { ShowBothQualities = true, ShowAge = true, ShowLastSale = true, ShowDailySales = true, ShowAveragePrice = true };
+        foreach (var line in Text(data, options).Split('\n'))
+            Check(line.Length <= 48, $"ligne trop longue ({line.Length}) : {line}");
     }
 }

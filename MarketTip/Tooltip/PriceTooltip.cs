@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
-using Dalamud.Game.ClientState.Keys;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Interface.Utility;
@@ -32,6 +31,9 @@ public sealed unsafe class PriceTooltip : IDisposable
     // Couleurs du jeu (feuille UIColor) : mise en valeur et texte grisé.
     private const ushort HighlightColor = 506;
     private const ushort DimColor = 20;
+
+    // Espace laissé sous le texte des prix, avant les raccourcis du bas de l'infobulle.
+    private const int BottomGap = 8;
 
     private readonly Configuration config;
     private readonly PriceLookup lookup;
@@ -69,8 +71,7 @@ public sealed unsafe class PriceTooltip : IDisposable
             var hovered = Plugin.GameGui.HoveredItem;
             if (!lookup.TryGetMarketableId(hovered, out var itemId, out var hq))
                 return;
-            var refresh = config.RefreshWithAlt && Plugin.KeyState[VirtualKey.MENU];
-            var (data, state) = lookup.Get(itemId, refresh);
+            var (data, state) = lookup.Get(itemId);
             Show((AtkUnitBase*)args.Addon.Address, TooltipText.Build(data, state, hq, config, DateTime.Now));
         }
         catch (Exception ex)
@@ -156,7 +157,7 @@ public sealed unsafe class PriceTooltip : IDisposable
         if (bottom == null)
             return;
 
-        var removed = node->AtkResNode.Height + 4;
+        var removed = node->AtkResNode.Height + BottomGap;
         var window = tooltip->WindowNode;
         window->AtkResNode.SetHeight((ushort)(window->AtkResNode.Height - removed));
         window->Component->UldManager.RootNode->SetHeight(window->AtkResNode.Height);
@@ -190,7 +191,7 @@ public sealed unsafe class PriceTooltip : IDisposable
         // Le texte se place sous le contenu actuel, et l'infobulle s'agrandit d'autant.
         var window = tooltip->WindowNode;
         node->AtkResNode.SetYFloat(window->AtkResNode.Height - 8);
-        var added = node->AtkResNode.Height + 4;
+        var added = node->AtkResNode.Height + BottomGap;
         var height = (ushort)(window->AtkResNode.Height + added);
         window->SetHeight(height);
         window->AtkResNode.SetHeight(height);

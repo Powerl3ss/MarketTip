@@ -8,29 +8,21 @@ namespace MarketTip;
 [Serializable]
 public class Configuration : IPluginConfiguration, ITooltipOptions
 {
-    public int Version { get; set; } = 1;
+    public int Version { get; set; } = 2;
 
     /// <summary>Les prix s'affichent dans les infobulles.</summary>
     public bool Enabled { get; set; } = true;
 
-    // --- Prix les plus bas ---
-    public bool ShowCheapestWorld { get; set; } = true;
-    public bool ShowCheapestDatacenter { get; set; } = true;
-    public bool ShowCheapestRegion { get; set; } = false;
+    // --- Contenu de l'infobulle ---
 
-    // --- Dernières ventes ---
-    public bool ShowLastSaleWorld { get; set; } = true;
-    public bool ShowLastSaleDatacenter { get; set; } = false;
-    public bool ShowLastSaleRegion { get; set; } = false;
+    /// <summary>Jusqu'où chercher l'annonce la moins chère.</summary>
+    public Scope SearchScope { get; set; } = Scope.Region;
 
-    // --- Statistiques (null : non affichées) ---
-    public Scope? AveragePriceScope { get; set; } = null;
-    public Scope? DailySalesScope { get; set; } = Scope.World;
-
-    // --- Présentation ---
-    public bool ShowBothQualities { get; set; } = true;
+    public bool ShowLastSale { get; set; } = true;
+    public bool ShowDailySales { get; set; } = true;
+    public bool ShowAveragePrice { get; set; } = false;
+    public bool ShowBothQualities { get; set; } = false;
     public bool ShowAge { get; set; } = true;
-    public bool ShowDatacenterName { get; set; } = true;
 
     // --- Données ---
 
@@ -39,8 +31,6 @@ public class Configuration : IPluginConfiguration, ITooltipOptions
 
     /// <summary>Les prix de l'inventaire sont demandés à l'avance, pour s'afficher sans attendre.</summary>
     public bool PrefetchInventory { get; set; } = true;
-
-    public bool RefreshWithAlt { get; set; } = true;
 
     // --- Fenêtre de réglages ---
     public Vector4 AccentColor { get; set; } = new(0.30f, 0.65f, 1.00f, 1.00f);

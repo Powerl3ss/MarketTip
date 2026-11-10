@@ -20,24 +20,23 @@ Ce lien donne accès à tous les plugins de Powerl3ss.
 Sous le prix de vente au marchand, pour tout objet qui se vend au marché :
 
 ```
-Prix au marché
-  Moins cher (Cerberus) : 1 180 / 1 990 (il y a 5 h)
-  Sur Moogle : 1 450 / 2 300 (il y a 2 h)
-Dernière vente
-  Sur Moogle : 1 400 / 2 250 (il y a 24 min)
-Ventes par jour (Moogle) : 6,5 / 1,2
+Marché (Omega)
+  Prix : 2 500 (il y a 2 h)
+  Moins cher : 2 033 Spriggan
+  Dernière vente : 2 400 (il y a 8 h)
+  Ventes par jour : 6,5
 ```
 
-- Le prix de la qualité survolée (normale ou haute qualité) est mis en valeur.
-- Le moins cher du centre de données ou de la région n'apparaît que s'il est ailleurs que sur ton monde.
-- Chaque ligne se règle : prix les plus bas, dernières ventes, prix moyen, ventes par jour, une ou deux qualités, ancienneté.
+- **Prix** : l'annonce la moins chère sur ton monde, pour la qualité de l'objet survolé.
+- **Moins cher** : seulement si une annonce est moins chère ailleurs, dans ton centre de données ou dans toute ta région (au choix). Le centre de données est précisé quand ce n'est pas le tien, par exemple « Odin, Light ».
+- Dernière vente, ventes par jour, prix moyen, les deux qualités et l'ancienneté s'activent ou non dans les réglages.
 - Un aperçu dans les réglages montre le résultat avec de faux prix.
 
 ## D'où viennent les prix
 
 D'[Universalis](https://universalis.app), un site qui rassemble les relevés du marché envoyés par les joueurs. Un prix peut donc dater : l'ancienneté affichée à côté indique le dernier relevé. Consulter le marché en jeu le met à jour.
 
-Le plugin envoie seulement à Universalis le monde de référence et les objets dont il cherche le prix. Les prix reçus sont gardés une heure. Ceux de l'inventaire, des sacoches et des servants sont demandés à l'avance, pour s'afficher sans attendre. Garder **Alt** enfoncé en survolant un objet redemande ses prix.
+Le plugin envoie seulement à Universalis le monde de référence et les objets dont il cherche le prix. Les prix reçus sont gardés une heure. Ceux de l'inventaire, des sacoches et des servants sont demandés à l'avance, pour s'afficher sans attendre. `/markettip clear` les vide.
 
 ## Commandes
 
