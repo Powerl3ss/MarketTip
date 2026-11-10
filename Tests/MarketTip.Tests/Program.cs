@@ -139,7 +139,7 @@ internal static class Tests
     public static void CheaperOnOtherWorld()
     {
         var text = Text(Data(dc: Q(L(1_100, "Spriggan"))));
-        Equal("Prix sur Omega : 1 500" + Gil + "\nMoins cher sur Spriggan : 1 100" + Gil, text);
+        Equal("Prix sur Omega : 1 500" + Gil + "\nMoins cher sur Spriggan (Chaos) : 1 100" + Gil, text);
     }
 
     public static void CheaperInOtherDatacenter()
@@ -165,7 +165,7 @@ internal static class Tests
         var data = Data(dc: Q(L(1_100, "Spriggan")), region: Q(L(900, "Odin", "Light")));
         Check(!Text(data, new Options { SearchScope = Scope.World }).Contains("Moins cher"), "monde seul");
         var dc = Text(data, new Options { SearchScope = Scope.Datacenter });
-        Check(dc.Contains("Moins cher sur Spriggan : 1 100" + Gil) && !dc.Contains("Odin"), dc);
+        Check(dc.Contains("Moins cher sur Spriggan (Chaos) : 1 100" + Gil) && !dc.Contains("Odin"), dc);
     }
 
     public static void HoveredQualityOnly()

@@ -79,7 +79,7 @@ public static class TooltipText
     /// Le bloc ajouté à l'infobulle. Des lignes courtes, pour tenir dans la largeur de l'infobulle du jeu :
     /// <code>
     /// Prix sur Omega : 2 500 (il y a 2 h)
-    /// Moins cher sur Spriggan : 2 033
+    /// Moins cher sur Spriggan (Chaos) : 2 033
     /// Dernière vente : 8 000 (il y a 8 h)
     /// Ventes par jour : 6,5
     /// </code>
@@ -161,10 +161,8 @@ public static class TooltipText
             if (home.HasValue && home.Value.Price <= listing.Price)
                 return;
 
-            // Le monde fait partie de l'intitulé ; le centre de données n'est précisé que si ce n'est pas celui du joueur.
-            var place = listing.Datacenter != null && listing.Datacenter != data.Datacenter
-                ? $"{listing.World} ({listing.Datacenter})"
-                : listing.World;
+            // Le monde fait partie de l'intitulé, avec son centre de données.
+            var place = string.IsNullOrEmpty(listing.Datacenter) ? listing.World : $"{listing.World} ({listing.Datacenter})";
             // Une seule qualité ici, pour que la ligne reste courte.
             var isHq = hq ? qualities.Hq.HasValue : !qualities.Nq.HasValue;
             Line($"Moins cher sur {place} : ");
