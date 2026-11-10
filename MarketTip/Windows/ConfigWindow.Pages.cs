@@ -126,7 +126,8 @@ public sealed partial class ConfigWindow
         // la hauteur du cadre est donc calculée d'avance pour le dessiner avant le texte.
         var pad = new Vector2(14f, 10f) * S;
         var lineGap = 3f * S;
-        var lines = 1;
+        // Une première ligne nomme l'objet d'exemple et sa qualité, pour voir ce que le choix du dessous change.
+        var lines = 2;
         foreach (var segment in segments)
             lines += segment.Text.Split('\n').Length - 1;
         var height = lines * ImGui.GetTextLineHeight() + (lines - 1) * lineGap + pad.Y * 2f;
@@ -140,7 +141,11 @@ public sealed partial class ConfigWindow
         ImGui.SetCursorScreenPos(start + pad);
         ImGui.BeginGroup();
         using (ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, new Vector2(0f, lineGap)))
+        {
+            ImGui.TextColored(TextDim, previewHq ? "Objet d'exemple, haute qualité " + TooltipText.HqIcon : "Objet d'exemple, qualité normale");
             DrawSegments(segments);
+        }
+
         ImGui.EndGroup();
 
         ImGui.SetCursorScreenPos(new Vector2(start.X, end.Y));
