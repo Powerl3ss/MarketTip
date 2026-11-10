@@ -141,21 +141,27 @@ public sealed partial class ConfigWindow
         var segments = TooltipText.Build(PreviewData(), LookupState.Ready, previewHq, Cfg, DateTime.Now);
 
         // Un cadre sombre comme l'infobulle du jeu, avec le texte des prix tel qu'il y sera ajouté.
+        // Le panneau autour sépare déjà le dessin en deux calques, et ImGui ne permet pas de le refaire ici :
+        // la hauteur du cadre est donc calculée d'avance pour le dessiner avant le texte.
         var pad = new Vector2(14f, 10f) * S;
+        var lineGap = 3f * S;
+        var lines = 1;
+        foreach (var segment in segments)
+            lines += segment.Text.Split('\n').Length - 1;
+        var height = lines * ImGui.GetTextLineHeight() + (lines - 1) * lineGap + pad.Y * 2f;
+
         var drawList = ImGui.GetWindowDrawList();
         var start = ImGui.GetCursorScreenPos();
-        drawList.ChannelsSplit(2);
-        drawList.ChannelsSetCurrent(1);
-        ImGui.SetCursorScreenPos(start + pad);
-        ImGui.BeginGroup();
-        using (ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, new Vector2(0f, 3f * S)))
-            DrawSegments(segments);
-        ImGui.EndGroup();
-        var end = new Vector2(start.X + cardInner, ImGui.GetItemRectMax().Y + pad.Y);
-        drawList.ChannelsSetCurrent(0);
+        var end = new Vector2(start.X + cardInner, start.Y + height);
         drawList.AddRectFilled(start, end, Col(new Vector4(0.05f, 0.05f, 0.06f, 0.92f)), 10f * S);
         drawList.AddRect(start, end, Col(Line), 10f * S);
-        drawList.ChannelsMerge();
+
+        ImGui.SetCursorScreenPos(start + pad);
+        ImGui.BeginGroup();
+        using (ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, new Vector2(0f, lineGap)))
+            DrawSegments(segments);
+        ImGui.EndGroup();
+
         ImGui.SetCursorScreenPos(new Vector2(start.X, end.Y));
         ImGui.Dummy(new Vector2(cardInner, 4f * S));
     }
