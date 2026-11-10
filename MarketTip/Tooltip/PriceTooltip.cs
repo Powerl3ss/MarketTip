@@ -31,15 +31,18 @@ public sealed unsafe class PriceTooltip : IDisposable
     // Couleurs du jeu (feuille UIColor) : mise en valeur et texte grisé.
     private const ushort HighlightColor = 506;
     private const ushort DimColor = 20;
+    private const ushort WarningColor = 500;
 
     // Espace laissé sous le texte des prix, avant les raccourcis du bas de l'infobulle.
     private const int BottomGap = 8;
 
     private readonly Configuration config;
     private readonly PriceLookup lookup;
+    private readonly ItemInfo info;
 
-    public PriceTooltip(Configuration config, PriceLookup lookup)
+    public PriceTooltip(Configuration config, PriceLookup lookup, ItemInfo info)
     {
+        this.info = info;
         this.config = config;
         this.lookup = lookup;
         lookup.Received += OnPricesReceived;
@@ -71,8 +74,7 @@ public sealed unsafe class PriceTooltip : IDisposable
             var hovered = Plugin.GameGui.HoveredItem;
             if (!lookup.TryGetMarketableId(hovered, out var itemId, out var hq))
                 return;
-            var (data, state) = lookup.Get(itemId);
-            Show((AtkUnitBase*)args.Addon.Address, TooltipText.Build(data, state, hq, config, DateTime.Now));
+            Show((AtkUnitBase*)args.Addon.Address, BuildText(itemId, hq));
         }
         catch (Exception ex)
         {
@@ -80,36 +82,26 @@ public sealed unsafe class PriceTooltip : IDisposable
         }
     }
 
-    // Les prix arrivent pendant que l'infobulle est ouverte : elle est mise à jour tout de suite.
+    // Des prix arrivent pendant que l'infobulle est ouverte : elle est mise à jour tout de suite. Ce peut être
+    // ceux de l'objet survolé comme ceux de ses matériaux.
     private void OnPricesReceived(IReadOnlyDictionary<uint, MarketData> received) =>
-        Plugin.Framework.RunOnFrameworkThread(() =>
-        {
-            if (!config.Enabled || !lookup.TryGetMarketableId(Plugin.GameGui.HoveredItem, out var itemId, out var hq))
-                return;
-            if (!received.TryGetValue(itemId, out var data))
-                return;
-            Redraw(TooltipText.Build(data, LookupState.Ready, hq, config, DateTime.Now));
-        });
+        Plugin.Framework.RunOnFrameworkThread(RedrawHovered);
 
     private void OnPricesFailed(IReadOnlyCollection<uint> items) =>
-        Plugin.Framework.RunOnFrameworkThread(() =>
-        {
-            if (!config.Enabled || !lookup.TryGetMarketableId(Plugin.GameGui.HoveredItem, out var itemId, out var hq))
-                return;
-            if (!Contains(items, itemId))
-                return;
-            Redraw(TooltipText.Build(null, LookupState.Failed, hq, config, DateTime.Now));
-        });
+        Plugin.Framework.RunOnFrameworkThread(RedrawHovered);
 
-    private static bool Contains(IReadOnlyCollection<uint> items, uint id)
+    private void RedrawHovered()
     {
-        foreach (var item in items)
-        {
-            if (item == id)
-                return true;
-        }
+        if (!config.Enabled || !lookup.TryGetMarketableId(Plugin.GameGui.HoveredItem, out var itemId, out var hq))
+            return;
+        Redraw(BuildText(itemId, hq));
+    }
 
-        return false;
+    private List<Segment> BuildText(uint itemId, bool hq)
+    {
+        var (data, state) = lookup.Get(itemId);
+        var context = data == null ? null : info.Context(itemId, hq, config);
+        return TooltipText.Build(data, state, hq, config, DateTime.Now, context);
     }
 
     private void Redraw(List<Segment> segments)
@@ -279,6 +271,9 @@ public sealed unsafe class PriceTooltip : IDisposable
                     break;
                 case SegmentKind.Dim:
                     Colored(payloads, DimColor, segment.Text);
+                    break;
+                case SegmentKind.Warning:
+                    Colored(payloads, WarningColor, segment.Text);
                     break;
                 case SegmentKind.CrossWorldIcon:
                     payloads.Add(new IconPayload(BitmapFontIcon.CrossWorld));

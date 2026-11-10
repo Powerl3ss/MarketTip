@@ -15,6 +15,11 @@ public sealed partial class ConfigWindow
     // Couleur des prix mis en valeur dans l'aperçu, proche de celle du jeu.
     private static readonly Vector4 PreviewHighlight = new(1f, 0.87f, 0.56f, 1f);
 
+    private static readonly Vector4 PreviewWarning = new(1f, 0.62f, 0.26f, 1f);
+
+    // L'objet d'exemple : 12 exemplaires dans les sacs, et des matériaux à 900 gils.
+    private static readonly ItemContext PreviewContext = new() { VendorPrice = 40, Owned = 12, MaterialCost = 900L };
+
     private bool previewHq;
 
     // =================================================================== Prix affichés
@@ -69,6 +74,9 @@ public sealed partial class ConfigWindow
             changed |= ToggleRow("Dernière vente", $"Le prix de la dernière vente sur {world}.", Cfg.ShowLastSale, v => Cfg.ShowLastSale = v);
             changed |= ToggleRow("Ventes par jour", "Pour savoir si l'objet part vite.", Cfg.ShowDailySales, v => Cfg.ShowDailySales = v);
             changed |= ToggleRow("Prix moyen", "Sur les ventes récentes.", Cfg.ShowAveragePrice, v => Cfg.ShowAveragePrice = v);
+            changed |= ToggleRow("Valeur de tes exemplaires", "« Tes 53 valent : 107 000 » quand tu en as plusieurs dans tes sacs.", Cfg.ShowOwnedValue, v => Cfg.ShowOwnedValue = v);
+            changed |= ToggleRow("Coût des matériaux", "Pour un objet qui se fabrique, au prix le plus bas de ton monde.", Cfg.ShowCraftCost, v => Cfg.ShowCraftCost = v);
+            changed |= ToggleRow("Conseil de vente au marchand", "Quand le marchand en donne autant que le marché, taxe déduite.", Cfg.ShowVendorHint, v => Cfg.ShowVendorHint = v);
         });
 
         SectionTitle("Présentation", FontAwesomeIcon.Font);
@@ -76,6 +84,14 @@ public sealed partial class ConfigWindow
         {
             changed |= ToggleRow("Les deux qualités", "Sinon, seulement la qualité de l'objet survolé.", Cfg.ShowBothQualities, v => Cfg.ShowBothQualities = v);
             changed |= ToggleRow("Ancienneté des prix", "« il y a 2 h » : depuis le dernier relevé ou la vente.", Cfg.ShowAge, v => Cfg.ShowAge = v);
+            changed |= ToggleRow("Signaler les prix anciens", "L'ancienneté passe en orangé au-delà de 3 jours.", Cfg.WarnStale, v => Cfg.WarnStale = v);
+            changed |= ToggleRow("Écart avec le moins cher", "« -30 % » à côté du prix trouvé ailleurs.", Cfg.ShowSavings, v => Cfg.ShowSavings = v);
+        });
+
+        SectionTitle("Raccourci", FontAwesomeIcon.Keyboard);
+        Card(() =>
+        {
+            changed |= ToggleRow("Ouvrir Universalis", "Ctrl+Maj+U en survolant un objet ouvre sa page, avec l'historique complet.", Cfg.UniversalisShortcut, v => Cfg.UniversalisShortcut = v);
         });
 
         if (changed)
@@ -119,7 +135,7 @@ public sealed partial class ConfigWindow
 
     private void DrawPreview()
     {
-        var segments = TooltipText.Build(PreviewData(), LookupState.Ready, previewHq, Cfg, DateTime.Now);
+        var segments = TooltipText.Build(PreviewData(), LookupState.Ready, previewHq, Cfg, DateTime.Now, PreviewContext);
 
         // Un cadre sombre comme l'infobulle du jeu, avec le texte des prix tel qu'il y sera ajouté.
         // Le panneau autour sépare déjà le dessin en deux calques, et ImGui ne permet pas de le refaire ici :
@@ -161,6 +177,7 @@ public sealed partial class ConfigWindow
             {
                 SegmentKind.Highlight => (segment.Text, PreviewHighlight),
                 SegmentKind.Dim => (segment.Text, TextDim),
+                SegmentKind.Warning => (segment.Text, PreviewWarning),
                 SegmentKind.CrossWorldIcon => (SeIconChar.CrossWorld.ToIconString(), TextMain),
                 SegmentKind.LoadingIcon or SegmentKind.WarningIcon => (string.Empty, TextMain),
                 _ => (segment.Text, TextMain),
@@ -208,7 +225,7 @@ public sealed partial class ConfigWindow
             },
             LastSale = new Scopes<Listing>
             {
-                World = new() { Nq = L(1_400, world, dc, 0.4), Hq = L(2_250, world, dc, 26) },
+                World = new() { Nq = L(1_400, world, dc, 0.4), Hq = L(2_250, world, dc, 100) },
                 Datacenter = new() { Nq = L(1_200, otherWorld, dc, 0.1), Hq = L(2_000, otherWorld, dc, 3) },
                 Region = new() { Nq = L(1_000, regionWorld, otherDc, 0.05), Hq = L(1_800, regionWorld, otherDc, 7) },
             },

@@ -22,6 +22,12 @@ var tests = new (string Name, Action Run)[]
     ("Dernière vente, ventes par jour, prix moyen", Tests.ExtraLines),
     ("Ancienneté masquable", Tests.AgeCanBeHidden),
     ("Lignes courtes", Tests.LinesStayShort),
+    ("Écart avec le moins cher", Tests.Savings),
+    ("Prix ancien signalé", Tests.StalePrice),
+    ("Valeur des exemplaires possédés", Tests.OwnedValue),
+    ("Coût des matériaux", Tests.CraftCost),
+    ("Conseil de vente au marchand", Tests.VendorHint),
+    ("Meilleure annonce, toutes qualités", Tests.BestListing),
 };
 
 var failed = 0;
@@ -50,6 +56,11 @@ internal sealed class Options : ITooltipOptions
     public bool ShowAveragePrice { get; set; }
     public bool ShowBothQualities { get; set; }
     public bool ShowAge { get; set; }
+    public bool ShowSavings { get; set; }
+    public bool WarnStale { get; set; }
+    public bool ShowOwnedValue { get; set; }
+    public bool ShowVendorHint { get; set; }
+    public bool ShowCraftCost { get; set; }
 }
 
 internal static class Tests
@@ -90,11 +101,60 @@ internal static class Tests
         };
     }
 
-    private static string Text(MarketData? data, Options? options = null, bool hq = false, LookupState state = LookupState.Ready) =>
-        string.Concat(Build(data, options, hq, state).Select(s => s.Text));
+    private static string Text(MarketData? data, Options? options = null, bool hq = false, LookupState state = LookupState.Ready, ItemContext? context = null) =>
+        string.Concat(Build(data, options, hq, state, context).Select(s => s.Text));
 
-    private static List<Segment> Build(MarketData? data, Options? options = null, bool hq = false, LookupState state = LookupState.Ready) =>
-        TooltipText.Build(data, state, hq, options ?? new Options(), Now);
+    private static List<Segment> Build(MarketData? data, Options? options = null, bool hq = false, LookupState state = LookupState.Ready, ItemContext? context = null) =>
+        TooltipText.Build(data, state, hq, options ?? new Options(), Now, context);
+
+    public static void Savings()
+    {
+        var text = Text(Data(dc: Q(L(1_050, "Spriggan"))), new Options { ShowSavings = true });
+        Check(text.EndsWith("Moins cher sur Spriggan (Chaos) : 1 050" + Gil + " (-30 %)"), text);
+    }
+
+    public static void StalePrice()
+    {
+        var old = Data(world: Q(L(1_500, "Omega", hoursAgo: 100)));
+        var age = Build(old, new Options { ShowAge = true, WarnStale = true }).Last();
+        Check(age.Kind == SegmentKind.Warning && age.Text == " (il y a 4 j)", age.Text);
+        Check(Build(old, new Options { ShowAge = true }).Last().Kind == SegmentKind.Dim, "sans le réglage");
+        Check(Build(Data(), new Options { ShowAge = true, WarnStale = true }).Last().Kind == SegmentKind.Dim, "prix récent");
+    }
+
+    public static void OwnedValue()
+    {
+        var options = new Options { ShowOwnedValue = true };
+        var text = Text(Data(), options, context: new ItemContext { Owned = 53 });
+        Check(text.EndsWith("\nTes 53 valent : 79 500" + Gil), text);
+        Check(!Text(Data(), options, context: new ItemContext { Owned = 1 }).Contains("valent"), "un seul exemplaire");
+        Check(!Text(Data(), context: new ItemContext { Owned = 53 }).Contains("valent"), "réglage coupé");
+    }
+
+    public static void CraftCost()
+    {
+        var options = new Options { ShowCraftCost = true };
+        Check(Text(Data(), options, context: new ItemContext { MaterialCost = 900L }).EndsWith("\nMatériaux : 900" + Gil), "coût complet");
+        Check(Text(Data(), options, context: new ItemContext { MaterialCost = 900L, MaterialCostPartial = true }).EndsWith("900" + Gil + " au moins"), "coût partiel");
+        Check(!Text(Data(), options).Contains("Matériaux"), "objet qui ne se fabrique pas");
+    }
+
+    public static void VendorHint()
+    {
+        var options = new Options { ShowVendorHint = true };
+        // 1 500 au marché, soit 1 425 taxe déduite : le marchand à 1 425 fait aussi bien.
+        var hint = Build(Data(), options, context: new ItemContext { VendorPrice = 1_425 }).Last();
+        Check(hint.Kind == SegmentKind.Warning && hint.Text == "\nAutant vendre au marchand (1 425" + Gil + ")", hint.Text);
+        Check(!Text(Data(), options, context: new ItemContext { VendorPrice = 1_424 }).Contains("marchand"), "le marché rapporte plus");
+        Check(!Text(Data(), options, context: new ItemContext { VendorPrice = 0 }).Contains("marchand"), "ne se revend pas");
+    }
+
+    public static void BestListing()
+    {
+        var data = Data(world: Q(L(1_500, "Omega"), L(1_200, "Omega")));
+        Check(TooltipText.BestListing(data, Scope.World).Value.Price == 1_200, "la haute qualité est moins chère");
+        Check(!TooltipText.BestListing(Data(world: new Qualities<Listing>(), dc: new Qualities<Listing>()), Scope.World).HasValue, "aucune annonce");
+    }
 
     public static void ThousandsSeparator()
     {

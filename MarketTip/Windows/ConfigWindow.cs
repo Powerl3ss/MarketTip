@@ -17,7 +17,7 @@ namespace MarketTip.Windows;
 /// <summary>Fenêtre de réglages : barre de navigation à gauche, pages à droite. Même cadre que les autres plugins.</summary>
 public sealed partial class ConfigWindow : Window, IDisposable
 {
-    private enum Page { Home, Data, Appearance, About }
+    private enum Page { Home, Data, Inventory, Watch, Appearance, About }
 
     // La navigation, rangée par thème : chaque groupe a son petit titre dans la barre latérale.
     private static readonly (string Group, (Page Page, FontAwesomeIcon Icon, string Label)[] Items)[] Navigation =
@@ -26,6 +26,11 @@ public sealed partial class ConfigWindow : Window, IDisposable
         {
             (Page.Home, FontAwesomeIcon.Coins, "Prix affichés"),
             (Page.Data, FontAwesomeIcon.Database, "Données"),
+        }),
+        ("Outils", new[]
+        {
+            (Page.Inventory, FontAwesomeIcon.BoxOpen, "Inventaire"),
+            (Page.Watch, FontAwesomeIcon.Bell, "Surveillance"),
         }),
         ("Réglages", new[]
         {
@@ -43,6 +48,20 @@ public sealed partial class ConfigWindow : Window, IDisposable
     private Configuration Cfg => plugin.Configuration;
 
     private Page page = Page.Home;
+
+    /// <summary>Ouvre la fenêtre sur la valeur de l'inventaire.</summary>
+    public void OpenInventory()
+    {
+        page = Page.Inventory;
+        IsOpen = true;
+    }
+
+    /// <summary>Ouvre la fenêtre sur les objets surveillés.</summary>
+    public void OpenWatchlist()
+    {
+        page = Page.Watch;
+        IsOpen = true;
+    }
 
     // Styles de fenêtre poussés avant Begin (PreDraw) et retirés après End (PostDraw).
     private IDisposable? windowStyle;
@@ -359,6 +378,8 @@ public sealed partial class ConfigWindow : Window, IDisposable
         {
             case Page.Home: DrawHomePage(); break;
             case Page.Data: DrawDataPage(); break;
+            case Page.Inventory: DrawInventoryPage(); break;
+            case Page.Watch: DrawWatchPage(); break;
             case Page.Appearance: DrawAppearancePage(); break;
             case Page.About: DrawAboutPage(); break;
         }

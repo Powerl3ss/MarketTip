@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using Dalamud.Configuration;
 using MarketTip.Core;
@@ -23,6 +24,17 @@ public class Configuration : IPluginConfiguration, ITooltipOptions
     public bool ShowAveragePrice { get; set; } = false;
     public bool ShowBothQualities { get; set; } = false;
     public bool ShowAge { get; set; } = true;
+    public bool ShowSavings { get; set; } = true;
+    public bool WarnStale { get; set; } = true;
+    public bool ShowOwnedValue { get; set; } = true;
+    public bool ShowVendorHint { get; set; } = true;
+    public bool ShowCraftCost { get; set; } = true;
+
+    /// <summary>Ctrl+Maj+U pendant le survol d'un objet ouvre sa page Universalis.</summary>
+    public bool UniversalisShortcut { get; set; } = true;
+
+    // --- Surveillance ---
+    public List<WatchEntry> Watchlist { get; set; } = new();
 
     // --- Données ---
 
@@ -38,4 +50,12 @@ public class Configuration : IPluginConfiguration, ITooltipOptions
     public float SettingsOpacity { get; set; } = 0.80f;
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
+}
+
+/// <summary>Un objet surveillé, avec le prix sous lequel prévenir (0 : pas d'alerte).</summary>
+[Serializable]
+public class WatchEntry
+{
+    public uint ItemId { get; set; }
+    public long Threshold { get; set; }
 }

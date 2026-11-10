@@ -16,6 +16,9 @@ public enum SegmentKind
     /// <summary>Texte secondaire (date, message d'attente) : grisé.</summary>
     Dim,
 
+    /// <summary>À remarquer (prix ancien, mieux vaut vendre au marchand) : orangé.</summary>
+    Warning,
+
     /// <summary>Icône du jeu : autre monde.</summary>
     CrossWorldIcon,
 
@@ -42,6 +45,37 @@ public interface ITooltipOptions
     bool ShowBothQualities { get; }
 
     bool ShowAge { get; }
+
+    /// <summary>« -30 % » à côté du prix moins cher ailleurs.</summary>
+    bool ShowSavings { get; }
+
+    /// <summary>L'ancienneté d'un prix vieux de plusieurs jours est signalée en orangé.</summary>
+    bool WarnStale { get; }
+
+    /// <summary>Valeur de tous les exemplaires possédés.</summary>
+    bool ShowOwnedValue { get; }
+
+    /// <summary>Signale quand le marchand rachète l'objet aussi cher que le marché.</summary>
+    bool ShowVendorHint { get; }
+
+    /// <summary>Coût des matériaux d'un objet qui se fabrique.</summary>
+    bool ShowCraftCost { get; }
+}
+
+/// <summary>Ce que l'on sait de l'objet survolé en dehors du marché. Tout est facultatif.</summary>
+public sealed record ItemContext
+{
+    /// <summary>Prix de rachat par un marchand, pour la qualité survolée. 0 : ne se revend pas.</summary>
+    public long VendorPrice { get; init; }
+
+    /// <summary>Nombre d'exemplaires possédés, de la qualité survolée.</summary>
+    public int Owned { get; init; }
+
+    /// <summary>Coût des matériaux pour fabriquer un exemplaire.</summary>
+    public Optional<long> MaterialCost { get; init; }
+
+    /// <summary>Le prix de certains matériaux est inconnu : le coût est un minimum.</summary>
+    public bool MaterialCostPartial { get; init; }
 }
 
 /// <summary>Construit le texte des prix ajouté sous l'infobulle d'un objet. Sans le jeu : testé à part.</summary>
@@ -84,7 +118,24 @@ public static class TooltipText
     /// Ventes par jour : 6,5
     /// </code>
     /// </summary>
-    public static List<Segment> Build(MarketData? data, LookupState state, bool hq, ITooltipOptions options, DateTime now)
+    /// <summary>Âge à partir duquel un prix est signalé comme ancien.</summary>
+    public static readonly TimeSpan StaleAfter = TimeSpan.FromDays(3);
+
+    /// <summary>Taxe du marché retenue pour comparer avec le marchand.</summary>
+    public const double MarketTax = 0.05;
+
+    /// <summary>L'annonce la moins chère dans la portée donnée, toutes qualités confondues.</summary>
+    public static Optional<Listing> BestListing(MarketData data, Scope scope)
+    {
+        var qualities = data.Cheapest.Get(scope);
+        if (!qualities.Nq.HasValue)
+            return qualities.Hq;
+        if (!qualities.Hq.HasValue)
+            return qualities.Nq;
+        return qualities.Nq.Value.Price <= qualities.Hq.Value.Price ? qualities.Nq : qualities.Hq;
+    }
+
+    public static List<Segment> Build(MarketData? data, LookupState state, bool hq, ITooltipOptions options, DateTime now, ItemContext? context = null)
     {
         var output = new List<Segment>();
         switch (state)
@@ -103,11 +154,11 @@ public static class TooltipText
             return output;
         }
 
-        new Writer(data, hq, options, now, output).Write();
+        new Writer(data, hq, options, now, output, context ?? new ItemContext()).Write();
         return output;
     }
 
-    private sealed class Writer(MarketData data, bool hq, ITooltipOptions options, DateTime now, List<Segment> output)
+    private sealed class Writer(MarketData data, bool hq, ITooltipOptions options, DateTime now, List<Segment> output, ItemContext context)
     {
         public void Write()
         {
@@ -116,6 +167,40 @@ public static class TooltipText
             WriteLastSale();
             WriteNumber("Ventes par jour", options.ShowDailySales, data.DailySales.World, Decimal);
             WriteNumber("Prix moyen", options.ShowAveragePrice, data.AveragePrice.World, value => Gil((long)Math.Round(value)));
+            WriteOwnedValue();
+            WriteCraftCost();
+            WriteVendorHint();
+        }
+
+        // Le prix de la qualité survolée sur le monde de référence, sans se rabattre sur l'autre qualité.
+        private Optional<Listing> HomePrice => hq ? data.Cheapest.World.Hq : data.Cheapest.World.Nq;
+
+        private void WriteOwnedValue()
+        {
+            if (!options.ShowOwnedValue || context.Owned < 2 || !HomePrice.HasValue)
+                return;
+            Line($"Tes {Number(context.Owned)} valent : ");
+            output.Add(new(SegmentKind.Highlight, Gil(HomePrice.Value.Price * context.Owned)));
+        }
+
+        private void WriteCraftCost()
+        {
+            if (!options.ShowCraftCost || !context.MaterialCost.HasValue)
+                return;
+            Line("Matériaux : ");
+            output.Add(new(SegmentKind.Highlight, Gil(context.MaterialCost.Value)));
+            if (context.MaterialCostPartial)
+                output.Add(new(SegmentKind.Dim, " au moins"));
+        }
+
+        // Une fois la taxe du marché retirée, le marchand en donne autant ou plus.
+        private void WriteVendorHint()
+        {
+            if (!options.ShowVendorHint || context.VendorPrice <= 0 || !HomePrice.HasValue)
+                return;
+            if (HomePrice.Value.Price * (1 - MarketTax) > context.VendorPrice)
+                return;
+            output.Add(new(SegmentKind.Warning, (output.Count > 0 ? "\n" : string.Empty) + $"Autant vendre au marchand ({Gil(context.VendorPrice)})"));
         }
 
         // La qualité survolée, sinon l'autre si les deux sont affichées.
@@ -167,6 +252,12 @@ public static class TooltipText
             var isHq = hq ? qualities.Hq.HasValue : !qualities.Nq.HasValue;
             Line($"Moins cher sur {place} : ");
             output.Add(new(SegmentKind.Highlight, (isHq ? HqIcon.ToString() : string.Empty) + Gil(listing.Price)));
+            if (options.ShowSavings && home.HasValue && home.Value.Price > 0)
+            {
+                var saved = (int)Math.Round((home.Value.Price - listing.Price) * 100d / home.Value.Price);
+                if (saved > 0)
+                    output.Add(new(SegmentKind.Dim, $" (-{saved} %)"));
+            }
         }
 
         private void WriteLastSale()
@@ -227,7 +318,8 @@ public static class TooltipText
             var span = now - t;
             if (span < TimeSpan.Zero)
                 span = TimeSpan.Zero;
-            output.Add(new(SegmentKind.Dim, $" ({Age(span)})"));
+            var stale = options.WarnStale && span >= StaleAfter;
+            output.Add(new(stale ? SegmentKind.Warning : SegmentKind.Dim, $" ({Age(span)})"));
         }
     }
 }
