@@ -1,0 +1,33 @@
+[
+  {
+    "Author": "Powerl3ss",
+    "Name": "MarketTip",
+    "InternalName": "MarketTip",
+    "AssemblyVersion": "0.1.0.0",
+    "Description": "",
+    "ApplicableVersion": "any",
+    "RepoUrl": "https://github.com/Powerl3ss/MarketTip",
+    "Tags": [
+      "market",
+      "marketboard",
+      "price",
+      "universalis",
+      "tooltip",
+      "prix"
+    ],
+    "DalamudApiLevel": 15,
+    "LoadRequiredState": 0,
+    "LoadSync": false,
+    "CanUnloadAsync": false,
+    "LoadPriority": 0,
+    "Punchline": "Les prix du marché dans l'infobulle des objets, en français.",
+    "AcceptsFeedback": true,
+    "DownloadLinkInstall": "https://github.com/Powerl3ss/MarketTip/releases/latest/download/latest.zip",
+    "DownloadLinkTesting": "https://github.com/Powerl3ss/MarketTip/releases/latest/download/latest.zip",
+    "DownloadLinkUpdate": "https://github.com/Powerl3ss/MarketTip/releases/latest/download/latest.zip",
+    "IconUrl": "https://raw.githubusercontent.com/Powerl3ss/MarketTip/main/MarketTip/images/icon.png",
+    "IsHide": false,
+    "IsTestingExclusive": false,
+    "LastUpdate": 1794333748
+  }
+]
