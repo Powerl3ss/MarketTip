@@ -77,6 +77,8 @@ public sealed class Plugin : IDalamudPlugin
         Universalis = new UniversalisClient();
         Lookup = new PriceLookup(Universalis);
         Items = new ItemInfo(Lookup);
+        // Les prix reçus avant la liste des centres de données d'Universalis peuvent nommer le mauvais centre.
+        Universalis.DatacentersLoaded += Lookup.Clear;
         tooltip = new PriceTooltip(Configuration, Lookup, Items);
         Lookup.Received += OnPricesReceived;
         configWindow = new ConfigWindow(this);
@@ -117,6 +119,7 @@ public sealed class Plugin : IDalamudPlugin
         WindowSystem.RemoveAllWindows();
         configWindow.Dispose();
         Lookup.Received -= OnPricesReceived;
+        Universalis.DatacentersLoaded -= Lookup.Clear;
         tooltip.Dispose();
         Lookup.Dispose();
         Universalis.Dispose();

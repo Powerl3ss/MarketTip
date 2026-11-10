@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -30,6 +31,21 @@ public sealed class UniversalisClient : IDisposable
     };
 
     private readonly Dictionary<uint, (string Name, string Datacenter, string Region)> worlds;
+
+    // Le centre de données et la région de chaque monde selon Universalis, qui font foi pour ses prix.
+    // Les données du jeu ne servent qu'en attendant leur arrivée.
+    private readonly ConcurrentDictionary<uint, (string Datacenter, string Region)> universalisWorlds = new();
+
+    private static readonly Dictionary<string, string> UniversalisRegions = new()
+    {
+        { "Japan", "Japon" },
+        { "North-America", "Amérique du Nord" },
+        { "Europe", "Europe" },
+        { "Oceania", "Océanie" },
+    };
+
+    /// <summary>Appelé quand les centres de données d'Universalis sont connus : les prix déjà reçus sont à redemander.</summary>
+    public event Action? DatacentersLoaded;
     private readonly HappyEyeballsCallback happyEyeballs = new();
     private readonly HttpClient http;
 
@@ -53,13 +69,52 @@ public sealed class UniversalisClient : IDisposable
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         var dalamud = Assembly.GetAssembly(typeof(Util))?.GetName().Version;
         http.DefaultRequestHeaders.UserAgent.ParseAdd($"MarketTip/{version} Dalamud/{dalamud}");
+        _ = LoadDatacenters();
     }
 
-    public string WorldName(uint worldId) => worlds.TryGetValue(worldId, out var w) ? w.Name : string.Empty;
+    private bool TryWorld(uint worldId, out (string Name, string Datacenter, string Region) world)
+    {
+        if (!worlds.TryGetValue(worldId, out world))
+            return false;
+        if (universalisWorlds.TryGetValue(worldId, out var place))
+            world = (world.Name, place.Datacenter, place.Region);
+        return true;
+    }
 
-    public string DatacenterName(uint worldId) => worlds.TryGetValue(worldId, out var w) ? w.Datacenter : string.Empty;
+    // Quelques essais espacés : sans cette liste, les noms des centres de données viennent des données du jeu.
+    private async Task LoadDatacenters()
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            try
+            {
+                await using var stream = await http.GetStreamAsync("https://universalis.app/api/v2/data-centers");
+                var list = await JsonSerializer.DeserializeAsync<List<DatacenterEntry>>(stream) ?? new List<DatacenterEntry>();
+                foreach (var dc in list)
+                {
+                    if (string.IsNullOrEmpty(dc.Name) || dc.Worlds == null)
+                        continue;
+                    var region = UniversalisRegions.GetValueOrDefault(dc.Region ?? string.Empty) ?? dc.Region ?? string.Empty;
+                    foreach (var id in dc.Worlds)
+                        universalisWorlds[id] = (dc.Name, region);
+                }
 
-    public string RegionName(uint worldId) => worlds.TryGetValue(worldId, out var w) ? w.Region : string.Empty;
+                DatacentersLoaded?.Invoke();
+                return;
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.Warning(ex, "Liste des centres de données d'Universalis indisponible");
+                await Task.Delay(TimeSpan.FromSeconds(30 * (attempt + 1)));
+            }
+        }
+    }
+
+    public string WorldName(uint worldId) => TryWorld(worldId, out var w) ? w.Name : string.Empty;
+
+    public string DatacenterName(uint worldId) => TryWorld(worldId, out var w) ? w.Datacenter : string.Empty;
+
+    public string RegionName(uint worldId) => TryWorld(worldId, out var w) ? w.Region : string.Empty;
 
     /// <summary>Les prix des objets demandés, vus depuis <paramref name="worldId"/>. Lance une exception en cas d'échec.</summary>
     public async Task<Dictionary<uint, MarketData>> Fetch(uint worldId, IReadOnlyCollection<uint> itemIds, CancellationToken token)
@@ -81,7 +136,7 @@ public sealed class UniversalisClient : IDisposable
 
     private MarketData ToMarketData(uint worldId, ItemResult item)
     {
-        worlds.TryGetValue(worldId, out var home);
+        TryWorld(worldId, out var home);
         var uploads = item.WorldUploadTimes?.ToDictionary(u => u.WorldId, u => FromMilliseconds(u.Timestamp))
                       ?? new Dictionary<uint, DateTime>();
         var homeUpload = uploads.TryGetValue(worldId, out var t) ? t : (DateTime?)null;
@@ -141,7 +196,7 @@ public sealed class UniversalisClient : IDisposable
     }
 
     private (string? World, string? Datacenter) Place(uint? worldId) =>
-        worldId is { } id && worlds.TryGetValue(id, out var w) ? (w.Name, w.Datacenter) : (null, null);
+        worldId is { } id && TryWorld(id, out var w) ? (w.Name, w.Datacenter) : (null, null);
 
     private static DateTime FromMilliseconds(long ms) => DateTimeOffset.FromUnixTimeMilliseconds(ms).LocalDateTime;
 
@@ -188,6 +243,13 @@ public sealed class UniversalisClient : IDisposable
         [JsonPropertyName("worldId")] public uint? WorldId { get; set; }
         [JsonPropertyName("timestamp")] public long? Timestamp { get; set; }
         [JsonPropertyName("quantity")] public double? Quantity { get; set; }
+    }
+
+    private sealed class DatacenterEntry
+    {
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("region")] public string? Region { get; set; }
+        [JsonPropertyName("worlds")] public List<uint>? Worlds { get; set; }
     }
 
     private sealed class WorldUpload
