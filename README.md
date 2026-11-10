@@ -28,8 +28,18 @@ Ventes par jour : 6,5
 
 - **Prix** : l'annonce la moins chère sur ton monde, pour la qualité de l'objet survolé.
 - **Moins cher** : seulement si une annonce est moins chère ailleurs, dans ton centre de données ou dans toute ta région (au choix). Le centre de données est précisé entre parenthèses.
-- Dernière vente, ventes par jour, prix moyen, les deux qualités et l'ancienneté s'activent ou non dans les réglages.
-- Un aperçu dans les réglages montre le résultat avec de faux prix.
+- **Écart** : « -30 % » à côté du prix trouvé ailleurs.
+- **Prix anciens** : l'ancienneté passe en orangé au-delà de 3 jours.
+- **Tes exemplaires** : « Tes 53 valent : 107 000 » quand tu en as plusieurs dans tes sacs.
+- **Matériaux** : pour un objet qui se fabrique, le coût de ses matériaux au prix le plus bas de ton monde.
+- **Marchand** : un conseil quand le marchand en donne autant que le marché, taxe déduite.
+- Chaque ligne s'active ou non dans les réglages, où un aperçu montre le résultat avec de faux prix.
+- **Ctrl+Maj+U** en survolant un objet ouvre sa page Universalis.
+
+## Outils
+
+- **Inventaire** (`/markettip inv`) : la valeur estimée de tes sacs, et ce qui y vaut le plus.
+- **Surveillance** (`/markettip watch`) : une liste d'objets dont les prix sont redemandés toutes les 10 minutes, avec un message dans le chat quand un prix passe sous le seuil que tu fixes.
 
 ## D'où viennent les prix
 
@@ -43,6 +53,8 @@ Le plugin envoie seulement à Universalis le monde de référence et les objets 
 |---|---|
 | `/markettip` | Affiche / masque les prix dans les infobulles |
 | `/markettip config` | Ouvre les réglages |
+| `/markettip inv` | Ouvre la valeur de l'inventaire |
+| `/markettip watch` | Ouvre les objets surveillés |
 | `/markettip clear` | Vide les prix en mémoire |
 
 `/mtip` fonctionne aussi.

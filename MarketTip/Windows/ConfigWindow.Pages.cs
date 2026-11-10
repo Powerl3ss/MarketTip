@@ -342,6 +342,8 @@ public sealed partial class ConfigWindow
         {
             CommandRow("/markettip", "Affiche ou masque les prix dans les infobulles");
             CommandRow("/markettip config", "Ouvre ces réglages");
+            CommandRow("/markettip inv", "Ouvre la valeur de l'inventaire");
+            CommandRow("/markettip watch", "Ouvre les objets surveillés");
             CommandRow("/markettip clear", "Vide les prix en mémoire");
         });
 
