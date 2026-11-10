@@ -9,7 +9,7 @@ namespace MarketTip;
 [Serializable]
 public class Configuration : IPluginConfiguration, ITooltipOptions
 {
-    public int Version { get; set; } = 2;
+    public int Version { get; set; } = 3;
 
     /// <summary>Les prix s'affichent dans les infobulles.</summary>
     public bool Enabled { get; set; } = true;
@@ -23,29 +23,27 @@ public class Configuration : IPluginConfiguration, ITooltipOptions
     public bool ShowDailySales { get; set; } = true;
     public bool ShowAveragePrice { get; set; } = false;
     public bool ShowBothQualities { get; set; } = false;
-    public bool ShowAge { get; set; } = true;
-    public bool ShowSavings { get; set; } = true;
-    public bool WarnStale { get; set; } = true;
-    public bool ShowVendorHint { get; set; } = true;
+
+    // Toujours actifs : ils n'ont plus de réglage, pour garder la fenêtre simple.
+    public bool ShowAge => true;
+    public bool ShowSavings => true;
+    public bool WarnStale => true;
+    public bool ShowVendorHint => true;
 
     /// <summary>Ctrl+Maj+U pendant le survol d'un objet ouvre sa page Universalis.</summary>
-    public bool UniversalisShortcut { get; set; } = true;
+    public bool UniversalisShortcut => true;
 
     // --- Surveillance ---
     public List<WatchEntry> Watchlist { get; set; } = new();
 
-    // --- Données ---
+    // --- Fixes : les prix du monde d'origine, ceux de l'inventaire demandés à l'avance ---
+    public bool UseCurrentWorld => false;
+    public bool PrefetchInventory => true;
 
-    /// <summary>Prix du monde où se trouve le personnage, au lieu de son monde d'origine.</summary>
-    public bool UseCurrentWorld { get; set; } = false;
-
-    /// <summary>Les prix de l'inventaire sont demandés à l'avance, pour s'afficher sans attendre.</summary>
-    public bool PrefetchInventory { get; set; } = true;
-
-    // --- Fenêtre de réglages ---
-    public Vector4 AccentColor { get; set; } = new(0.30f, 0.65f, 1.00f, 1.00f);
-    public bool AnimatedSettingsBackground { get; set; } = true;
-    public float SettingsOpacity { get; set; } = 0.80f;
+    // --- Fenêtre de réglages : l'apparence commune aux plugins, sans réglage ---
+    public Vector4 AccentColor => new(0.30f, 0.65f, 1.00f, 1.00f);
+    public bool AnimatedSettingsBackground => true;
+    public float SettingsOpacity => 0.80f;
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

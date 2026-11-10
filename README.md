@@ -31,7 +31,7 @@ Ventes par jour : 6,5
 - **Écart** : « -30 % » à côté du prix trouvé ailleurs.
 - **Prix anciens** : l'ancienneté passe en orangé au-delà de 3 jours.
 - **Marchand** : un conseil quand le marchand en donne autant que le marché, taxe déduite.
-- Chaque ligne s'active ou non dans les réglages, où un aperçu montre le résultat avec de faux prix.
+- Les réglages tiennent sur une page : où chercher moins cher, et quatre lignes à afficher ou non (dernière vente, ventes par jour, prix moyen, les deux qualités). Un aperçu montre le résultat.
 - **Ctrl+Maj+U** en survolant un objet ouvre sa page Universalis.
 
 ## Outils

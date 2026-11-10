@@ -17,27 +17,16 @@ namespace MarketTip.Windows;
 /// <summary>Fenêtre de réglages : barre de navigation à gauche, pages à droite. Même cadre que les autres plugins.</summary>
 public sealed partial class ConfigWindow : Window, IDisposable
 {
-    private enum Page { Home, Data, Inventory, Watch, Appearance, About }
+    private enum Page { Home, Inventory, Watch, About }
 
     // La navigation, rangée par thème : chaque groupe a son petit titre dans la barre latérale.
     private static readonly (string Group, (Page Page, FontAwesomeIcon Icon, string Label)[] Items)[] Navigation =
     {
-        ("Infobulle", new[]
+        ("MarketTip", new[]
         {
-            (Page.Home, FontAwesomeIcon.Coins, "Prix affichés"),
-            (Page.Data, FontAwesomeIcon.Database, "Données"),
-        }),
-        ("Outils", new[]
-        {
+            (Page.Home, FontAwesomeIcon.Coins, "Réglages"),
             (Page.Inventory, FontAwesomeIcon.BoxOpen, "Inventaire"),
             (Page.Watch, FontAwesomeIcon.Bell, "Surveillance"),
-        }),
-        ("Réglages", new[]
-        {
-            (Page.Appearance, FontAwesomeIcon.Palette, "Apparence"),
-        }),
-        ("Plus", new[]
-        {
             (Page.About, FontAwesomeIcon.InfoCircle, "À propos"),
         }),
     };
@@ -377,10 +366,8 @@ public sealed partial class ConfigWindow : Window, IDisposable
         switch (page)
         {
             case Page.Home: DrawHomePage(); break;
-            case Page.Data: DrawDataPage(); break;
             case Page.Inventory: DrawInventoryPage(); break;
             case Page.Watch: DrawWatchPage(); break;
-            case Page.Appearance: DrawAppearancePage(); break;
             case Page.About: DrawAboutPage(); break;
         }
         // La page s'arrête au bas de son dernier élément, sans marge en plus.

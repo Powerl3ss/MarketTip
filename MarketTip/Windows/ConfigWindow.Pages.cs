@@ -34,28 +34,20 @@ public sealed partial class ConfigWindow
             DrawStatusRow();
         }, glow: true);
 
-        SectionTitle("Aperçu", FontAwesomeIcon.Eye);
-        Card(() =>
-        {
-            DrawPreview();
-            previewHq = Choice("##previewQuality", null, "Exemple avec de faux prix, pour voir l'effet des réglages.", new[]
-            {
-                ("Qualité normale", FontAwesomeIcon.Circle),
-                ("Haute qualité", FontAwesomeIcon.Star),
-            }, previewHq ? 1 : 0) == 1;
-        });
-
         // Les vrais noms du monde, du centre de données et de la région quand ils sont connus.
         var worldId = plugin.Lookup.WorldId;
-        var world = Or(plugin.Universalis.WorldName(worldId), "Mon monde");
+        var world = Or(plugin.Universalis.WorldName(worldId), "ton monde");
         var datacenter = Or(plugin.Universalis.DatacenterName(worldId), "Centre de données");
         var region = Or(plugin.Universalis.RegionName(worldId), "Région");
 
-        SectionTitle("Chercher moins cher ailleurs", FontAwesomeIcon.Search);
+        SectionTitle("Aperçu", FontAwesomeIcon.Eye);
+        Card(DrawPreview);
+
+        SectionTitle("Chercher moins cher", FontAwesomeIcon.Search);
         Card(() =>
         {
             var current = (int)Cfg.SearchScope;
-            var chosen = Choice("##scope", null, $"Le prix sur {world} est toujours affiché. Si une annonce est moins chère ailleurs, une ligne « Moins cher » l'indique.", new[]
+            var chosen = Choice("##scope", null, $"Le prix sur {world} est toujours affiché.", new[]
             {
                 ("Non", FontAwesomeIcon.Ban),
                 (datacenter, FontAwesomeIcon.Server),
@@ -68,28 +60,13 @@ public sealed partial class ConfigWindow
             }
         });
 
-        SectionTitle("Lignes en plus", FontAwesomeIcon.ListUl);
+        SectionTitle("Afficher aussi", FontAwesomeIcon.ListUl);
         Card(() =>
         {
-            changed |= ToggleRow("Dernière vente", $"Le prix de la dernière vente sur {world}.", Cfg.ShowLastSale, v => Cfg.ShowLastSale = v);
-            changed |= ToggleRow("Ventes par jour", "Pour savoir si l'objet part vite.", Cfg.ShowDailySales, v => Cfg.ShowDailySales = v);
-            changed |= ToggleRow("Prix moyen", "Sur les ventes récentes.", Cfg.ShowAveragePrice, v => Cfg.ShowAveragePrice = v);
-            changed |= ToggleRow("Conseil de vente au marchand", "Quand le marchand en donne autant que le marché, taxe déduite.", Cfg.ShowVendorHint, v => Cfg.ShowVendorHint = v);
-        });
-
-        SectionTitle("Présentation", FontAwesomeIcon.Font);
-        Card(() =>
-        {
-            changed |= ToggleRow("Les deux qualités", "Sinon, seulement la qualité de l'objet survolé.", Cfg.ShowBothQualities, v => Cfg.ShowBothQualities = v);
-            changed |= ToggleRow("Ancienneté des prix", "« il y a 2 h » : depuis le dernier relevé ou la vente.", Cfg.ShowAge, v => Cfg.ShowAge = v);
-            changed |= ToggleRow("Signaler les prix anciens", "L'ancienneté passe en orangé au-delà de 3 jours.", Cfg.WarnStale, v => Cfg.WarnStale = v);
-            changed |= ToggleRow("Écart avec le moins cher", "« -30 % » à côté du prix trouvé ailleurs.", Cfg.ShowSavings, v => Cfg.ShowSavings = v);
-        });
-
-        SectionTitle("Raccourci", FontAwesomeIcon.Keyboard);
-        Card(() =>
-        {
-            changed |= ToggleRow("Ouvrir Universalis", "Ctrl+Maj+U en survolant un objet ouvre sa page, avec l'historique complet.", Cfg.UniversalisShortcut, v => Cfg.UniversalisShortcut = v);
+            changed |= ToggleRow("Dernière vente", null, Cfg.ShowLastSale, v => Cfg.ShowLastSale = v);
+            changed |= ToggleRow("Ventes par jour", null, Cfg.ShowDailySales, v => Cfg.ShowDailySales = v);
+            changed |= ToggleRow("Prix moyen", null, Cfg.ShowAveragePrice, v => Cfg.ShowAveragePrice = v);
+            changed |= ToggleRow("Les deux qualités", null, Cfg.ShowBothQualities, v => Cfg.ShowBothQualities = v);
         });
 
         if (changed)
@@ -156,7 +133,7 @@ public sealed partial class ConfigWindow
         ImGui.BeginGroup();
         using (ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, new Vector2(0f, lineGap)))
         {
-            ImGui.TextColored(TextDim, previewHq ? "Objet d'exemple, haute qualité " + TooltipText.HqIcon : "Objet d'exemple, qualité normale");
+            ImGui.TextColored(TextDim, "Objet d'exemple, avec de faux prix");
             DrawSegments(segments);
         }
 
@@ -244,67 +221,6 @@ public sealed partial class ConfigWindow
 
     private static string Or(string value, string fallback) => string.IsNullOrEmpty(value) ? fallback : value;
 
-    // =================================================================== Données
-
-    private void DrawDataPage()
-    {
-        var changed = false;
-
-        SectionTitle("Monde de référence", FontAwesomeIcon.Home);
-        Card(() =>
-        {
-            var current = Cfg.UseCurrentWorld ? 1 : 0;
-            var chosen = Choice("##world", null, "Le monde dont les prix sont lus. Le monde actuel suit tes visites sur d'autres mondes.", new[]
-            {
-                ("Monde d'origine", FontAwesomeIcon.Home),
-                ("Monde actuel", FontAwesomeIcon.MapMarkerAlt),
-            }, current);
-            if (chosen != current)
-            {
-                Cfg.UseCurrentWorld = chosen == 1;
-                changed = true;
-            }
-        });
-
-        SectionTitle("Mise à jour", FontAwesomeIcon.SyncAlt);
-        Card(() =>
-        {
-            changed |= ToggleRow("Demander les prix de l'inventaire à l'avance", "À la connexion et à l'ouverture de l'inventaire, des sacoches ou d'un servant : les prix s'affichent alors sans attendre.", Cfg.PrefetchInventory, v => Cfg.PrefetchInventory = v);
-            if (FancyButton("##clear", "Vider les prix en mémoire", FontAwesomeIcon.Trash, ButtonSize("Vider les prix en mémoire", FontAwesomeIcon.Trash), primary: false))
-                plugin.Lookup.Clear();
-        });
-
-        SectionTitle("D'où viennent les prix", FontAwesomeIcon.Database);
-        Card(() =>
-        {
-            TextDimmed("Les prix viennent d'Universalis, un site qui rassemble les relevés du marché envoyés par les joueurs qui ont un plugin comme Dalamud. Un prix peut donc dater : l'ancienneté affichée à côté indique le dernier relevé.");
-            TextDimmed("MarketTip ne fait que lire ces prix : il envoie seulement le monde de référence et les objets dont il cherche le prix.");
-            if (FancyButton("##universalis", "Ouvrir Universalis", FontAwesomeIcon.ExternalLinkAlt, ButtonSize("Ouvrir Universalis", FontAwesomeIcon.ExternalLinkAlt), primary: false))
-                Util.OpenLink("https://universalis.app");
-        });
-
-        if (changed)
-            SaveSoon();
-    }
-
-    // =================================================================== Apparence
-
-    private void DrawAppearancePage()
-    {
-        var changed = false;
-
-        SectionTitle("Fenêtre de réglages", FontAwesomeIcon.Cog);
-        Card(() =>
-        {
-            changed |= ColorRow("Couleur d'accent", null, Cfg.AccentColor, v => Cfg.AccentColor = v);
-            changed |= ToggleRow("Fond animé", "Halos lumineux et particules derrière les réglages.", Cfg.AnimatedSettingsBackground, v => Cfg.AnimatedSettingsBackground = v);
-            changed |= SliderRow("Opacité du fond", "Derrière les panneaux. 0 : le jeu se voit entièrement.", Cfg.SettingsOpacity, 0f, 1f, "%.2f", v => Cfg.SettingsOpacity = v);
-        });
-
-        if (changed)
-            SaveSoon();
-    }
-
     // =================================================================== À propos
 
     private void DrawAboutPage()
@@ -343,6 +259,13 @@ public sealed partial class ConfigWindow
             CommandRow("/markettip inv", "Ouvre la valeur de l'inventaire");
             CommandRow("/markettip watch", "Ouvre les objets surveillés");
             CommandRow("/markettip clear", "Vide les prix en mémoire");
+        });
+
+        SectionTitle("D'où viennent les prix", FontAwesomeIcon.Database);
+        Card(() =>
+        {
+            TextDimmed("D'Universalis, un site qui rassemble les relevés du marché envoyés par les joueurs. Un prix peut donc dater : l'ancienneté à côté indique le dernier relevé, en orangé au-delà de 3 jours. MarketTip envoie seulement ton monde et les objets dont il cherche le prix.");
+            TextDimmed("Ctrl+Maj+U en survolant un objet ouvre sa page Universalis.");
         });
 
         if (FancyButton("##repo", "Ouvrir la page GitHub", FontAwesomeIcon.ExternalLinkAlt, ButtonSize("Ouvrir la page GitHub", FontAwesomeIcon.ExternalLinkAlt), primary: false))
