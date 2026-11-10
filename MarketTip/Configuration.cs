@@ -40,10 +40,10 @@ public class Configuration : IPluginConfiguration, ITooltipOptions
     public bool UseCurrentWorld => false;
     public bool PrefetchInventory => true;
 
-    // --- Fenêtre de réglages : l'apparence commune aux plugins, sans réglage ---
-    public Vector4 AccentColor => new(0.30f, 0.65f, 1.00f, 1.00f);
-    public bool AnimatedSettingsBackground => true;
-    public float SettingsOpacity => 0.80f;
+    // --- Fenêtre de réglages ---
+    public Vector4 AccentColor { get; set; } = new(0.30f, 0.65f, 1.00f, 1.00f);
+    public bool AnimatedSettingsBackground { get; set; } = true;
+    public float SettingsOpacity { get; set; } = 0.80f;
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

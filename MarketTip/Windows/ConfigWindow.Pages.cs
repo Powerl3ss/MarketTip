@@ -221,6 +221,24 @@ public sealed partial class ConfigWindow
 
     private static string Or(string value, string fallback) => string.IsNullOrEmpty(value) ? fallback : value;
 
+    // =================================================================== Apparence
+
+    private void DrawAppearancePage()
+    {
+        var changed = false;
+
+        SectionTitle("Fenêtre de réglages", FontAwesomeIcon.Palette);
+        Card(() =>
+        {
+            changed |= ColorRow("Couleur d'accent", null, Cfg.AccentColor, v => Cfg.AccentColor = v);
+            changed |= ToggleRow("Fond animé", "Halos lumineux et particules derrière les réglages.", Cfg.AnimatedSettingsBackground, v => Cfg.AnimatedSettingsBackground = v);
+            changed |= SliderRow("Opacité du fond", "Derrière les panneaux. 0 : le jeu se voit entièrement.", Cfg.SettingsOpacity, 0f, 1f, "%.2f", v => Cfg.SettingsOpacity = v);
+        });
+
+        if (changed)
+            SaveSoon();
+    }
+
     // =================================================================== À propos
 
     private void DrawAboutPage()
