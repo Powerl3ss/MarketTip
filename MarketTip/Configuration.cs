@@ -23,6 +23,7 @@ public class Configuration : IPluginConfiguration, ITooltipOptions
     public bool ShowDailySales { get; set; } = true;
     public bool ShowAveragePrice { get; set; } = false;
     public bool ShowBothQualities { get; set; } = false;
+    public bool HighlightHq { get; set; } = false;
 
     // Toujours actifs : ils n'ont plus de réglage, pour garder la fenêtre simple.
     public bool ShowAge => true;

@@ -18,7 +18,7 @@ var tests = new (string Name, Action Run)[]
     ("Pas de ligne si le monde est déjà le moins cher", Tests.HomeIsCheapest),
     ("Portée : monde seul, centre de données", Tests.ScopeLimits),
     ("Qualité survolée seule par défaut", Tests.HoveredQualityOnly),
-    ("Les deux qualités, la survolée mise en valeur", Tests.BothQualities),
+    ("Les deux qualités, celle choisie en jaune", Tests.BothQualities),
     ("Dernière vente, ventes par jour, prix moyen", Tests.ExtraLines),
     ("Ancienneté masquable", Tests.AgeCanBeHidden),
     ("Lignes courtes", Tests.LinesStayShort),
@@ -53,6 +53,7 @@ internal sealed class Options : ITooltipOptions
     public bool ShowDailySales { get; set; }
     public bool ShowAveragePrice { get; set; }
     public bool ShowBothQualities { get; set; }
+    public bool HighlightHq { get; set; }
     public bool ShowAge { get; set; }
     public bool ShowSavings { get; set; }
     public bool WarnStale { get; set; }
@@ -217,9 +218,13 @@ internal static class Tests
 
     public static void BothQualities()
     {
-        var segments = Build(Data(), new Options { ShowBothQualities = true }, hq: true);
+        var segments = Build(Data(), new Options { ShowBothQualities = true, HighlightHq = true });
         Equal("Prix sur Omega : 1 500" + Gil + " / " + Hq + "2 500" + Gil, string.Concat(segments.Select(s => s.Text)));
         Equal(Hq + "2 500" + Gil, segments.Single(s => s.Kind == SegmentKind.Highlight).Text);
+
+        // Le prix classique en jaune, même en survolant un objet HQ.
+        var classic = Build(Data(), new Options { ShowBothQualities = true }, hq: true);
+        Equal("1 500" + Gil, classic.Single(s => s.Kind == SegmentKind.Highlight).Text);
     }
 
     public static void ExtraLines()

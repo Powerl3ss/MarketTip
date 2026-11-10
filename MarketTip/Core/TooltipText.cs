@@ -44,6 +44,9 @@ public interface ITooltipOptions
     /// <summary>Les deux qualités, au lieu de la seule qualité survolée.</summary>
     bool ShowBothQualities { get; }
 
+    /// <summary>Avec les deux qualités : le prix HQ en jaune, sinon le prix classique.</summary>
+    bool HighlightHq { get; }
+
     bool ShowAge { get; }
 
     /// <summary>« -30 % » à côté du prix moins cher ailleurs.</summary>
@@ -250,18 +253,19 @@ public static class TooltipText
 
         private void Line(string text) => output.Add(new(SegmentKind.Text, (output.Count > 0 ? "\n" : string.Empty) + text));
 
-        // La qualité survolée est mise en valeur ; l'autre suit si les deux sont affichées.
+        // Avec les deux qualités, celle choisie dans les réglages est en jaune. Avec une seule, elle l'est toujours.
         private void Values<T>(Qualities<T> qualities, Func<T, double> value, Func<double, string> format)
             where T : notnull
         {
             var nq = qualities.Nq;
             var hqValue = qualities.Hq;
             var both = options.ShowBothQualities;
+            var yellowHq = both ? options.HighlightHq : hq;
 
             var wroteNq = false;
             if (nq.HasValue && (both || !hq))
             {
-                output.Add(new(hq ? SegmentKind.Text : SegmentKind.Highlight, format(value(nq.Value))));
+                output.Add(new(yellowHq ? SegmentKind.Text : SegmentKind.Highlight, format(value(nq.Value))));
                 wroteNq = true;
             }
 
@@ -269,7 +273,7 @@ public static class TooltipText
             {
                 if (wroteNq)
                     output.Add(new(SegmentKind.Text, " / "));
-                output.Add(new(hq ? SegmentKind.Highlight : SegmentKind.Text, HqIcon + format(value(hqValue.Value))));
+                output.Add(new(yellowHq ? SegmentKind.Highlight : SegmentKind.Text, HqIcon + format(value(hqValue.Value))));
             }
         }
 

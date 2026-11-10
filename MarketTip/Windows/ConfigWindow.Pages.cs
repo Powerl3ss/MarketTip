@@ -67,6 +67,20 @@ public sealed partial class ConfigWindow
             changed |= ToggleRow("Ventes par jour", null, Cfg.ShowDailySales, v => Cfg.ShowDailySales = v);
             changed |= ToggleRow("Prix moyen", null, Cfg.ShowAveragePrice, v => Cfg.ShowAveragePrice = v);
             changed |= ToggleRow("Les deux qualités", null, Cfg.ShowBothQualities, v => Cfg.ShowBothQualities = v);
+            if (Cfg.ShowBothQualities)
+            {
+                var current = Cfg.HighlightHq ? 1 : 0;
+                var chosen = Choice("##highlight", "En jaune", null, new[]
+                {
+                    ("Prix classique", FontAwesomeIcon.Circle),
+                    ("Prix HQ", FontAwesomeIcon.Star),
+                }, current);
+                if (chosen != current)
+                {
+                    Cfg.HighlightHq = chosen == 1;
+                    changed = true;
+                }
+            }
         });
 
         if (changed)
