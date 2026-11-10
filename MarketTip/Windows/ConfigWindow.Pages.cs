@@ -45,9 +45,12 @@ public sealed partial class ConfigWindow
             DrawPreview();
         });
 
+        // Les deux panneaux ont les mêmes intitulés : chacun a son propre espace d'identifiants, sinon ImGui
+        // confond leurs interrupteurs (même animation, même clic).
         SectionTitle("Prix les plus bas", FontAwesomeIcon.Tag);
         Card(() =>
         {
+            using var scope = ImRaii.PushId("cheapest");
             changed |= ToggleRow("Sur le monde", "L'annonce la moins chère sur le monde de référence (voir Données).", Cfg.ShowCheapestWorld, v => Cfg.ShowCheapestWorld = v);
             changed |= ToggleRow("Dans le centre de données", "Seulement si elle est sur un autre monde.", Cfg.ShowCheapestDatacenter, v => Cfg.ShowCheapestDatacenter = v);
             changed |= ToggleRow("Dans la région", "Seulement si elle est dans un autre centre de données. Changer de centre de données n'est pas toujours possible.", Cfg.ShowCheapestRegion, v => Cfg.ShowCheapestRegion = v);
@@ -56,6 +59,7 @@ public sealed partial class ConfigWindow
         SectionTitle("Dernière vente", FontAwesomeIcon.History);
         Card(() =>
         {
+            using var scope = ImRaii.PushId("lastSale");
             changed |= ToggleRow("Sur le monde", null, Cfg.ShowLastSaleWorld, v => Cfg.ShowLastSaleWorld = v);
             changed |= ToggleRow("Dans le centre de données", "Seulement si elle a eu lieu sur un autre monde.", Cfg.ShowLastSaleDatacenter, v => Cfg.ShowLastSaleDatacenter = v);
             changed |= ToggleRow("Dans la région", "Seulement si elle a eu lieu dans un autre centre de données.", Cfg.ShowLastSaleRegion, v => Cfg.ShowLastSaleRegion = v);
