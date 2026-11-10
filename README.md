@@ -20,14 +20,14 @@ Ce lien donne accès à tous les plugins de Powerl3ss.
 Sous le prix de vente au marchand, pour tout objet qui se vend au marché :
 
 ```
-Prix : 2 500 Omega (il y a 2 h)
-Moins cher : 2 033 Spriggan
+Prix sur Omega : 2 500 (il y a 2 h)
+Moins cher sur Spriggan : 2 033
 Dernière vente : 2 400 (il y a 8 h)
 Ventes par jour : 6,5
 ```
 
 - **Prix** : l'annonce la moins chère sur ton monde, pour la qualité de l'objet survolé.
-- **Moins cher** : seulement si une annonce est moins chère ailleurs, dans ton centre de données ou dans toute ta région (au choix). Le centre de données est précisé quand ce n'est pas le tien, par exemple « Odin, Light ».
+- **Moins cher** : seulement si une annonce est moins chère ailleurs, dans ton centre de données ou dans toute ta région (au choix). Le centre de données est précisé quand ce n'est pas le tien, par exemple « Odin (Light) ».
 - Dernière vente, ventes par jour, prix moyen, les deux qualités et l'ancienneté s'activent ou non dans les réglages.
 - Un aperçu dans les réglages montre le résultat avec de faux prix.
 

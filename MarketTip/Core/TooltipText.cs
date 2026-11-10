@@ -78,8 +78,8 @@ public static class TooltipText
     /// <summary>
     /// Le bloc ajouté à l'infobulle. Des lignes courtes, pour tenir dans la largeur de l'infobulle du jeu :
     /// <code>
-    /// Prix : 2 500 Omega (il y a 2 h)
-    /// Moins cher : 2 033 Spriggan
+    /// Prix sur Omega : 2 500 (il y a 2 h)
+    /// Moins cher sur Spriggan : 2 033
     /// Dernière vente : 8 000 (il y a 8 h)
     /// Ventes par jour : 6,5
     /// </code>
@@ -131,16 +131,15 @@ public static class TooltipText
         // Le prix sur le monde de référence : toujours affiché, c'est celui auquel on vend.
         private void WritePrice()
         {
-            Line("Prix : ");
+            Line($"Prix sur {data.World} : ");
             var listing = Pick(data.Cheapest.World);
             if (!listing.HasValue)
             {
-                output.Add(new(SegmentKind.Dim, $"aucune annonce sur {data.World}"));
+                output.Add(new(SegmentKind.Dim, "aucune annonce"));
                 return;
             }
 
             Prices(data.Cheapest.World);
-            output.Add(new(SegmentKind.Text, " " + data.World));
             Time(listing.Value.Time);
         }
 
@@ -162,15 +161,14 @@ public static class TooltipText
             if (home.HasValue && home.Value.Price <= listing.Price)
                 return;
 
+            // Le monde fait partie de l'intitulé ; le centre de données n'est précisé que si ce n'est pas celui du joueur.
+            var place = listing.Datacenter != null && listing.Datacenter != data.Datacenter
+                ? $"{listing.World} ({listing.Datacenter})"
+                : listing.World;
             // Une seule qualité ici, pour que la ligne reste courte.
             var isHq = hq ? qualities.Hq.HasValue : !qualities.Nq.HasValue;
-            Line("Moins cher : ");
+            Line($"Moins cher sur {place} : ");
             output.Add(new(SegmentKind.Highlight, (isHq ? HqIcon.ToString() : string.Empty) + Gil(listing.Price)));
-            // Le centre de données n'est précisé que si ce n'est pas celui du joueur.
-            var place = listing.Datacenter != null && listing.Datacenter != data.Datacenter
-                ? $"{listing.World}, {listing.Datacenter}"
-                : listing.World;
-            output.Add(new(SegmentKind.Text, " " + place));
         }
 
         private void WriteLastSale()

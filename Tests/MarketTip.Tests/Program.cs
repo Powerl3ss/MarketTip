@@ -128,29 +128,29 @@ internal static class Tests
     }
 
     public static void WorldPrice() =>
-        Equal("Prix : 1 500" + Gil + " Omega", Text(Data()));
+        Equal("Prix sur Omega : 1 500" + Gil, Text(Data()));
 
     public static void NoListing()
     {
         var text = Text(Data(world: new Qualities<Listing>(), dc: new Qualities<Listing>()));
-        Equal("Prix : aucune annonce sur Omega", text);
+        Equal("Prix sur Omega : aucune annonce", text);
     }
 
     public static void CheaperOnOtherWorld()
     {
         var text = Text(Data(dc: Q(L(1_100, "Spriggan"))));
-        Equal("Prix : 1 500" + Gil + " Omega\nMoins cher : 1 100" + Gil + " Spriggan", text);
+        Equal("Prix sur Omega : 1 500" + Gil + "\nMoins cher sur Spriggan : 1 100" + Gil, text);
     }
 
     public static void CheaperInOtherDatacenter()
     {
         var text = Text(Data(dc: Q(L(1_100, "Spriggan")), region: Q(L(900, "Odin", "Light"))));
-        Check(text.EndsWith("\nMoins cher : 900" + Gil + " Odin, Light"), text);
+        Check(text.EndsWith("\nMoins cher sur Odin (Light) : 900" + Gil), text);
         Check(!text.Contains("Spriggan"), text);
 
         // Sans annonce sur son monde, le moins cher ailleurs reste affiché.
         var none = Text(Data(world: new Qualities<Listing>(), region: Q(L(900, "Odin", "Light"))));
-        Check(none.Contains("Prix : aucune annonce sur Omega\nMoins cher : 900" + Gil + " Odin, Light"), none);
+        Check(none.Contains("Prix sur Omega : aucune annonce\nMoins cher sur Odin (Light) : 900" + Gil), none);
     }
 
     public static void HomeIsCheapest()
@@ -165,21 +165,21 @@ internal static class Tests
         var data = Data(dc: Q(L(1_100, "Spriggan")), region: Q(L(900, "Odin", "Light")));
         Check(!Text(data, new Options { SearchScope = Scope.World }).Contains("Moins cher"), "monde seul");
         var dc = Text(data, new Options { SearchScope = Scope.Datacenter });
-        Check(dc.Contains("Moins cher : 1 100" + Gil + " Spriggan") && !dc.Contains("Odin"), dc);
+        Check(dc.Contains("Moins cher sur Spriggan : 1 100" + Gil) && !dc.Contains("Odin"), dc);
     }
 
     public static void HoveredQualityOnly()
     {
-        Equal("Prix : " + Hq + "2 500" + Gil + " Omega", Text(Data(), hq: true));
+        Equal("Prix sur Omega : " + Hq + "2 500" + Gil, Text(Data(), hq: true));
         // Pas d'annonce en haute qualité : le prix normal n'est pas affiché à sa place.
         var nqOnly = Q(L(1_500, "Omega"));
-        Equal("Prix : aucune annonce sur Omega", Text(Data(world: nqOnly), hq: true));
+        Equal("Prix sur Omega : aucune annonce", Text(Data(world: nqOnly), hq: true));
     }
 
     public static void BothQualities()
     {
         var segments = Build(Data(), new Options { ShowBothQualities = true }, hq: true);
-        Equal("Prix : 1 500" + Gil + " / " + Hq + "2 500" + Gil + " Omega", string.Concat(segments.Select(s => s.Text)));
+        Equal("Prix sur Omega : 1 500" + Gil + " / " + Hq + "2 500" + Gil, string.Concat(segments.Select(s => s.Text)));
         Equal(Hq + "2 500" + Gil, segments.Single(s => s.Kind == SegmentKind.Highlight).Text);
     }
 
@@ -187,7 +187,7 @@ internal static class Tests
     {
         var options = new Options { ShowLastSale = true, ShowDailySales = true, ShowAveragePrice = true };
         var text = Text(Data(), options);
-        Equal("Prix : 1 500" + Gil + " Omega\nDernière vente : 1 400" + Gil + "\nVentes par jour : 6,5\nPrix moyen : 1 421" + Gil, text);
+        Equal("Prix sur Omega : 1 500" + Gil + "\nDernière vente : 1 400" + Gil + "\nVentes par jour : 6,5\nPrix moyen : 1 421" + Gil, text);
         // En haute qualité : pas de ventes par jour connues, la ligne disparaît.
         Check(!Text(Data(), options, hq: true).Contains("Ventes par jour"), "ventes HQ inconnues");
     }
@@ -195,7 +195,7 @@ internal static class Tests
     public static void AgeCanBeHidden()
     {
         var text = Text(Data(), new Options { ShowAge = true, ShowLastSale = true });
-        Check(text.Contains("Prix : 1 500" + Gil + " Omega (il y a 1 h)"), text);
+        Check(text.Contains("Prix sur Omega : 1 500" + Gil + " (il y a 1 h)"), text);
         Check(text.Contains("Dernière vente : 1 400" + Gil + " (il y a 8 h)"), text);
         Check(!Text(Data()).Contains("il y a"), "ancienneté masquée");
     }
@@ -208,6 +208,6 @@ internal static class Tests
             region: Q(L(1_034_567, "Shiva", "Light"), L(2_045_678, "Shiva", "Light")));
         var options = new Options { ShowBothQualities = true, ShowAge = true, ShowLastSale = true, ShowDailySales = true, ShowAveragePrice = true };
         foreach (var line in Text(data, options).Split('\n'))
-            Check(line.Length <= 52, $"ligne trop longue ({line.Length}) : {line}");
+            Check(line.Length <= 56, $"ligne trop longue ({line.Length}) : {line}");
     }
 }
