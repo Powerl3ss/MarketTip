@@ -24,8 +24,6 @@ var tests = new (string Name, Action Run)[]
     ("Lignes courtes", Tests.LinesStayShort),
     ("Écart avec le moins cher", Tests.Savings),
     ("Prix ancien signalé", Tests.StalePrice),
-    ("Valeur des exemplaires possédés", Tests.OwnedValue),
-    ("Coût des matériaux", Tests.CraftCost),
     ("Conseil de vente au marchand", Tests.VendorHint),
     ("Meilleure annonce, toutes qualités", Tests.BestListing),
 };
@@ -58,9 +56,7 @@ internal sealed class Options : ITooltipOptions
     public bool ShowAge { get; set; }
     public bool ShowSavings { get; set; }
     public bool WarnStale { get; set; }
-    public bool ShowOwnedValue { get; set; }
     public bool ShowVendorHint { get; set; }
-    public bool ShowCraftCost { get; set; }
 }
 
 internal static class Tests
@@ -120,23 +116,6 @@ internal static class Tests
         Check(age.Kind == SegmentKind.Warning && age.Text == " (il y a 4 j)", age.Text);
         Check(Build(old, new Options { ShowAge = true }).Last().Kind == SegmentKind.Dim, "sans le réglage");
         Check(Build(Data(), new Options { ShowAge = true, WarnStale = true }).Last().Kind == SegmentKind.Dim, "prix récent");
-    }
-
-    public static void OwnedValue()
-    {
-        var options = new Options { ShowOwnedValue = true };
-        var text = Text(Data(), options, context: new ItemContext { Owned = 53 });
-        Check(text.EndsWith("\nTes 53 valent : 79 500" + Gil), text);
-        Check(!Text(Data(), options, context: new ItemContext { Owned = 1 }).Contains("valent"), "un seul exemplaire");
-        Check(!Text(Data(), context: new ItemContext { Owned = 53 }).Contains("valent"), "réglage coupé");
-    }
-
-    public static void CraftCost()
-    {
-        var options = new Options { ShowCraftCost = true };
-        Check(Text(Data(), options, context: new ItemContext { MaterialCost = 900L }).EndsWith("\nMatériaux : 900" + Gil), "coût complet");
-        Check(Text(Data(), options, context: new ItemContext { MaterialCost = 900L, MaterialCostPartial = true }).EndsWith("900" + Gil + " au moins"), "coût partiel");
-        Check(!Text(Data(), options).Contains("Matériaux"), "objet qui ne se fabrique pas");
     }
 
     public static void VendorHint()

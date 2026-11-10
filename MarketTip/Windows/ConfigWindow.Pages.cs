@@ -17,8 +17,8 @@ public sealed partial class ConfigWindow
 
     private static readonly Vector4 PreviewWarning = new(1f, 0.62f, 0.26f, 1f);
 
-    // L'objet d'exemple : 12 exemplaires dans les sacs, et des matériaux à 900 gils.
-    private static readonly ItemContext PreviewContext = new() { VendorPrice = 40, Owned = 12, MaterialCost = 900L };
+    // L'objet d'exemple : racheté 40 gils par le marchand.
+    private static readonly ItemContext PreviewContext = new() { VendorPrice = 40 };
 
     private bool previewHq;
 
@@ -74,8 +74,6 @@ public sealed partial class ConfigWindow
             changed |= ToggleRow("Dernière vente", $"Le prix de la dernière vente sur {world}.", Cfg.ShowLastSale, v => Cfg.ShowLastSale = v);
             changed |= ToggleRow("Ventes par jour", "Pour savoir si l'objet part vite.", Cfg.ShowDailySales, v => Cfg.ShowDailySales = v);
             changed |= ToggleRow("Prix moyen", "Sur les ventes récentes.", Cfg.ShowAveragePrice, v => Cfg.ShowAveragePrice = v);
-            changed |= ToggleRow("Valeur de tes exemplaires", "« Tes 53 valent : 107 000 » quand tu en as plusieurs dans tes sacs.", Cfg.ShowOwnedValue, v => Cfg.ShowOwnedValue = v);
-            changed |= ToggleRow("Coût des matériaux", "Pour un objet qui se fabrique, au prix le plus bas de ton monde.", Cfg.ShowCraftCost, v => Cfg.ShowCraftCost = v);
             changed |= ToggleRow("Conseil de vente au marchand", "Quand le marchand en donne autant que le marché, taxe déduite.", Cfg.ShowVendorHint, v => Cfg.ShowVendorHint = v);
         });
 

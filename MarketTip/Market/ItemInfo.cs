@@ -11,10 +11,7 @@ namespace MarketTip.Market;
 /// <summary>Un objet possédé : sa qualité et le nombre d'exemplaires.</summary>
 public readonly record struct OwnedItem(uint ItemId, bool Hq, int Count);
 
-/// <summary>
-/// Ce que le jeu sait d'un objet en dehors du marché : son nom, son prix chez le marchand, combien le joueur en
-/// possède et, s'il se fabrique, ce que coûtent ses matériaux.
-/// </summary>
+/// <summary>Ce que le jeu sait d'un objet en dehors du marché : son nom, son prix chez le marchand, le contenu des sacs.</summary>
 public sealed unsafe class ItemInfo
 {
     private static readonly InventoryType[] Bags =
@@ -24,9 +21,6 @@ public sealed unsafe class ItemInfo
 
     private readonly PriceLookup lookup;
     private readonly ExcelSheet<Item> items;
-
-    // Recettes par objet fabriqué, lues une seule fois à la première demande.
-    private Dictionary<uint, (int Yield, (uint ItemId, int Amount)[] Ingredients)>? recipes;
 
     public ItemInfo(PriceLookup lookup)
     {
@@ -69,13 +63,6 @@ public sealed unsafe class ItemInfo
         return hq ? (long)Math.Ceiling(price * 1.1) : price;
     }
 
-    /// <summary>Nombre d'exemplaires dans les sacs, pour une qualité.</summary>
-    public int Owned(uint itemId, bool hq)
-    {
-        var manager = InventoryManager.Instance();
-        return manager == null ? 0 : manager->GetInventoryItemCount(itemId, hq, false, false);
-    }
-
     /// <summary>Le contenu des sacs, regroupé par objet et par qualité.</summary>
     public List<OwnedItem> ScanBags()
     {
@@ -103,72 +90,8 @@ public sealed unsafe class ItemInfo
     }
 
     /// <summary>Tout ce qui complète les prix du marché dans l'infobulle de l'objet survolé.</summary>
-    public ItemContext Context(uint itemId, bool hq, ITooltipOptions options)
+    public ItemContext Context(uint itemId, bool hq, ITooltipOptions options) => new()
     {
-        var (cost, partial) = options.ShowCraftCost ? MaterialCost(itemId) : (Optional<long>.None, false);
-        return new ItemContext
-        {
-            VendorPrice = options.ShowVendorHint ? VendorPrice(itemId, hq) : 0,
-            Owned = options.ShowOwnedValue ? Owned(itemId, hq) : 0,
-            MaterialCost = cost,
-            MaterialCostPartial = partial,
-        };
-    }
-
-    /// <summary>
-    /// Le coût des matériaux d'un exemplaire, au prix le plus bas du monde de référence. Les prix encore inconnus
-    /// sont demandés : le coût est alors partiel, et se complète quand ils arrivent.
-    /// </summary>
-    public (Optional<long> Cost, bool Partial) MaterialCost(uint itemId)
-    {
-        recipes ??= LoadRecipes();
-        if (!recipes.TryGetValue(itemId, out var recipe))
-            return (Optional<long>.None, false);
-
-        long total = 0;
-        var known = 0;
-        foreach (var (ingredient, amount) in recipe.Ingredients)
-        {
-            if (!lookup.TryGetMarketableId(ingredient, out var id, out _))
-                continue;
-            var (data, _) = lookup.Get(id);
-            if (data == null)
-                continue;
-            var best = TooltipText.BestListing(data, Scope.World);
-            if (!best.HasValue)
-                continue;
-            total += best.Value.Price * amount;
-            known++;
-        }
-
-        if (known == 0)
-            return (Optional<long>.None, false);
-        var perItem = (long)Math.Round(total / (double)Math.Max(1, recipe.Yield));
-        return (perItem, known < recipe.Ingredients.Length);
-    }
-
-    private static Dictionary<uint, (int, (uint, int)[])> LoadRecipes()
-    {
-        var result = new Dictionary<uint, (int, (uint, int)[])>();
-        foreach (var recipe in Plugin.DataManager.GetExcelSheet<Recipe>())
-        {
-            var made = recipe.ItemResult.RowId;
-            if (made == 0 || result.ContainsKey(made))
-                continue;
-
-            var ingredients = new List<(uint, int)>();
-            for (var i = 0; i < recipe.Ingredient.Count; i++)
-            {
-                var id = recipe.Ingredient[i].RowId;
-                var amount = (int)recipe.AmountIngredient[i];
-                if (id != 0 && amount > 0)
-                    ingredients.Add((id, amount));
-            }
-
-            if (ingredients.Count > 0)
-                result[made] = (recipe.AmountResult, ingredients.ToArray());
-        }
-
-        return result;
-    }
+        VendorPrice = options.ShowVendorHint ? VendorPrice(itemId, hq) : 0,
+    };
 }

@@ -52,14 +52,8 @@ public interface ITooltipOptions
     /// <summary>L'ancienneté d'un prix vieux de plusieurs jours est signalée en orangé.</summary>
     bool WarnStale { get; }
 
-    /// <summary>Valeur de tous les exemplaires possédés.</summary>
-    bool ShowOwnedValue { get; }
-
     /// <summary>Signale quand le marchand rachète l'objet aussi cher que le marché.</summary>
     bool ShowVendorHint { get; }
-
-    /// <summary>Coût des matériaux d'un objet qui se fabrique.</summary>
-    bool ShowCraftCost { get; }
 }
 
 /// <summary>Ce que l'on sait de l'objet survolé en dehors du marché. Tout est facultatif.</summary>
@@ -67,9 +61,7 @@ public sealed record ItemContext
 {
     /// <summary>Prix de rachat par un marchand, pour la qualité survolée. 0 : ne se revend pas.</summary>
     public long VendorPrice { get; init; }
-
-    /// <summary>Nombre d'exemplaires possédés, de la qualité survolée.</summary>
-    public int Owned { get; init; }
+}
 
     /// <summary>Coût des matériaux pour fabriquer un exemplaire.</summary>
     public Optional<long> MaterialCost { get; init; }
@@ -167,31 +159,11 @@ public static class TooltipText
             WriteLastSale();
             WriteNumber("Ventes par jour", options.ShowDailySales, data.DailySales.World, Decimal);
             WriteNumber("Prix moyen", options.ShowAveragePrice, data.AveragePrice.World, value => Gil((long)Math.Round(value)));
-            WriteOwnedValue();
-            WriteCraftCost();
             WriteVendorHint();
         }
 
         // Le prix de la qualité survolée sur le monde de référence, sans se rabattre sur l'autre qualité.
         private Optional<Listing> HomePrice => hq ? data.Cheapest.World.Hq : data.Cheapest.World.Nq;
-
-        private void WriteOwnedValue()
-        {
-            if (!options.ShowOwnedValue || context.Owned < 2 || !HomePrice.HasValue)
-                return;
-            Line($"Tes {Number(context.Owned)} valent : ");
-            output.Add(new(SegmentKind.Highlight, Gil(HomePrice.Value.Price * context.Owned)));
-        }
-
-        private void WriteCraftCost()
-        {
-            if (!options.ShowCraftCost || !context.MaterialCost.HasValue)
-                return;
-            Line("Matériaux : ");
-            output.Add(new(SegmentKind.Highlight, Gil(context.MaterialCost.Value)));
-            if (context.MaterialCostPartial)
-                output.Add(new(SegmentKind.Dim, " au moins"));
-        }
 
         // Une fois la taxe du marché retirée, le marchand en donne autant ou plus.
         private void WriteVendorHint()

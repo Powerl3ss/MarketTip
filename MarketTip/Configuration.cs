@@ -26,9 +26,7 @@ public class Configuration : IPluginConfiguration, ITooltipOptions
     public bool ShowAge { get; set; } = true;
     public bool ShowSavings { get; set; } = true;
     public bool WarnStale { get; set; } = true;
-    public bool ShowOwnedValue { get; set; } = true;
     public bool ShowVendorHint { get; set; } = true;
-    public bool ShowCraftCost { get; set; } = true;
 
     /// <summary>Ctrl+Maj+U pendant le survol d'un objet ouvre sa page Universalis.</summary>
     public bool UniversalisShortcut { get; set; } = true;

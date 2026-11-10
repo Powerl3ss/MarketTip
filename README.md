@@ -30,8 +30,6 @@ Ventes par jour : 6,5
 - **Moins cher** : seulement si une annonce est moins chère ailleurs, dans ton centre de données ou dans toute ta région (au choix). Le centre de données est précisé entre parenthèses.
 - **Écart** : « -30 % » à côté du prix trouvé ailleurs.
 - **Prix anciens** : l'ancienneté passe en orangé au-delà de 3 jours.
-- **Tes exemplaires** : « Tes 53 valent : 107 000 » quand tu en as plusieurs dans tes sacs.
-- **Matériaux** : pour un objet qui se fabrique, le coût de ses matériaux au prix le plus bas de ton monde.
 - **Marchand** : un conseil quand le marchand en donne autant que le marché, taxe déduite.
 - Chaque ligne s'active ou non dans les réglages, où un aperçu montre le résultat avec de faux prix.
 - **Ctrl+Maj+U** en survolant un objet ouvre sa page Universalis.
