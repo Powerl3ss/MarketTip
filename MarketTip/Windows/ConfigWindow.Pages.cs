@@ -32,47 +32,68 @@ public sealed partial class ConfigWindow
         SectionTitle("Aperçu", FontAwesomeIcon.Eye);
         Card(() =>
         {
-            var width = 340f * S;
-            SettingRow("Objet survolé", "Exemple avec de faux prix, pour voir l'effet des réglages.", width, () =>
-            {
-                var chosen = Segmented("##previewQuality", new[]
-                {
-                    ("Qualité normale", FontAwesomeIcon.Circle),
-                    ("Haute qualité", FontAwesomeIcon.Star),
-                }, previewHq ? 1 : 0, width);
-                previewHq = chosen == 1;
-            }, FrameH + 20f * S);
             DrawPreview();
+            previewHq = Choice("##previewQuality", null, "Exemple avec de faux prix, pour voir l'effet des réglages.", new[]
+            {
+                ("Qualité normale", FontAwesomeIcon.Circle),
+                ("Haute qualité", FontAwesomeIcon.Star),
+            }, previewHq ? 1 : 0) == 1;
         });
 
-        SectionTitle("Contenu de l'infobulle", FontAwesomeIcon.Tag);
+        // Les vrais noms du monde, du centre de données et de la région quand ils sont connus.
+        var worldId = plugin.Lookup.WorldId;
+        var world = Or(plugin.Universalis.WorldName(worldId), "Mon monde");
+        var datacenter = Or(plugin.Universalis.DatacenterName(worldId), "Centre de données");
+        var region = Or(plugin.Universalis.RegionName(worldId), "Région");
+
+        SectionTitle("Chercher moins cher ailleurs", FontAwesomeIcon.Search);
         Card(() =>
         {
-            var width = 420f * S;
-            SettingRow("Chercher moins cher", "Le prix sur ton monde est toujours affiché. Une ligne « Moins cher » s'ajoute si une annonce est moins chère ailleurs. La région comprend tous les centres de données, comme Chaos et Light en Europe.", width, () =>
+            var current = (int)Cfg.SearchScope;
+            var chosen = Choice("##scope", null, $"Le prix sur {world} est toujours affiché. Si une annonce est moins chère ailleurs, une ligne « Moins cher » l'indique.", new[]
             {
-                var current = (int)Cfg.SearchScope;
-                var chosen = Segmented("##scope", new[]
-                {
-                    ("Nulle part", FontAwesomeIcon.Home),
-                    ("Centre de données", FontAwesomeIcon.Server),
-                    ("Région", FontAwesomeIcon.Globe),
-                }, current, width);
-                if (chosen != current)
-                {
-                    Cfg.SearchScope = (Scope)chosen;
-                    changed = true;
-                }
-            }, FrameH + 20f * S);
-            changed |= ToggleRow("Dernière vente", "Le prix de la dernière vente sur ton monde.", Cfg.ShowLastSale, v => Cfg.ShowLastSale = v);
-            changed |= ToggleRow("Ventes par jour", "Pour savoir si l'objet part vite sur ton monde.", Cfg.ShowDailySales, v => Cfg.ShowDailySales = v);
-            changed |= ToggleRow("Prix moyen", "Sur les ventes récentes de ton monde.", Cfg.ShowAveragePrice, v => Cfg.ShowAveragePrice = v);
-            changed |= ToggleRow("Les deux qualités", "Qualité normale et haute qualité. Sinon, seulement celle de l'objet survolé.", Cfg.ShowBothQualities, v => Cfg.ShowBothQualities = v);
-            changed |= ToggleRow("Ancienneté", "« il y a 2 h » : depuis le dernier relevé du marché ou la vente.", Cfg.ShowAge, v => Cfg.ShowAge = v);
+                ("Non", FontAwesomeIcon.Ban),
+                (datacenter, FontAwesomeIcon.Server),
+                (region, FontAwesomeIcon.Globe),
+            }, current);
+            if (chosen != current)
+            {
+                Cfg.SearchScope = (Scope)chosen;
+                changed = true;
+            }
+        });
+
+        SectionTitle("Lignes en plus", FontAwesomeIcon.ListUl);
+        Card(() =>
+        {
+            changed |= ToggleRow("Dernière vente", $"Le prix de la dernière vente sur {world}.", Cfg.ShowLastSale, v => Cfg.ShowLastSale = v);
+            changed |= ToggleRow("Ventes par jour", "Pour savoir si l'objet part vite.", Cfg.ShowDailySales, v => Cfg.ShowDailySales = v);
+            changed |= ToggleRow("Prix moyen", "Sur les ventes récentes.", Cfg.ShowAveragePrice, v => Cfg.ShowAveragePrice = v);
+        });
+
+        SectionTitle("Présentation", FontAwesomeIcon.Font);
+        Card(() =>
+        {
+            changed |= ToggleRow("Les deux qualités", "Sinon, seulement la qualité de l'objet survolé.", Cfg.ShowBothQualities, v => Cfg.ShowBothQualities = v);
+            changed |= ToggleRow("Ancienneté des prix", "« il y a 2 h » : depuis le dernier relevé ou la vente.", Cfg.ShowAge, v => Cfg.ShowAge = v);
         });
 
         if (changed)
             SaveSoon();
+    }
+
+    /// <summary>
+    /// Un choix sur toute la largeur du panneau, sous son titre et sa description. À côté du texte, il le
+    /// comprimait dans une colonne étroite et ses intitulés se chevauchaient.
+    /// </summary>
+    private int Choice(string id, string? title, string? description, (string Label, FontAwesomeIcon Icon)[] items, int current)
+    {
+        if (!string.IsNullOrEmpty(title))
+            ImGui.TextUnformatted(title);
+        if (!string.IsNullOrEmpty(description))
+            TextDimmed(description);
+        ImGui.Dummy(new Vector2(0f, 2f * S));
+        return Segmented(id, items, current, cardInner);
     }
 
     private void DrawStatusRow()
@@ -212,20 +233,17 @@ public sealed partial class ConfigWindow
         SectionTitle("Monde de référence", FontAwesomeIcon.Home);
         Card(() =>
         {
-            var width = 360f * S;
-            SettingRow("Prix lus depuis", "Le monde actuel suit les visites sur d'autres mondes. Les prix déjà reçus sont alors redemandés.", width, () =>
+            var current = Cfg.UseCurrentWorld ? 1 : 0;
+            var chosen = Choice("##world", null, "Le monde dont les prix sont lus. Le monde actuel suit tes visites sur d'autres mondes.", new[]
             {
-                var chosen = Segmented("##world", new[]
-                {
-                    ("Monde d'origine", FontAwesomeIcon.Home),
-                    ("Monde actuel", FontAwesomeIcon.MapMarkerAlt),
-                }, Cfg.UseCurrentWorld ? 1 : 0, width);
-                if (chosen != (Cfg.UseCurrentWorld ? 1 : 0))
-                {
-                    Cfg.UseCurrentWorld = chosen == 1;
-                    changed = true;
-                }
-            }, FrameH + 20f * S);
+                ("Monde d'origine", FontAwesomeIcon.Home),
+                ("Monde actuel", FontAwesomeIcon.MapMarkerAlt),
+            }, current);
+            if (chosen != current)
+            {
+                Cfg.UseCurrentWorld = chosen == 1;
+                changed = true;
+            }
         });
 
         SectionTitle("Mise à jour", FontAwesomeIcon.SyncAlt);
