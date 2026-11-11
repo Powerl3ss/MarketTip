@@ -30,7 +30,7 @@ public sealed unsafe class PriceTooltip : IDisposable
     private const uint AdviceNodeId = 0x4D5402;
 
     // Espace en plus entre les prix et le conseil, comme entre deux paragraphes du jeu (mesuré sur capture).
-    private const int ParagraphGap = 3;
+    private const int ParagraphGap = 5;
 
     // Nœuds du jeu : le bloc placé en bas de l'infobulle, et un texte dont on copie l'apparence.
     private const uint BottomNodeId = 2;

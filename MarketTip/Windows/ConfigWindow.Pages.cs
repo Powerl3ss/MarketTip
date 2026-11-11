@@ -23,7 +23,7 @@ public sealed partial class ConfigWindow
     private bool previewHq;
 
     // Espace en plus avant le conseil du marchand, comme dans l'infobulle du jeu.
-    private static float ParagraphGap => 3f * S;
+    private static float ParagraphGap => 5f * S;
 
     // =================================================================== Prix affichés
 
