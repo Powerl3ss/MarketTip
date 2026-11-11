@@ -44,6 +44,9 @@ public sealed unsafe class PriceTooltip : IDisposable
     // Distance entre la barre et le texte des prix : la barre tombe ainsi à égale distance des deux textes.
     private const float SeparatorAboveText = 12f;
 
+    // Décalage mesuré sur des captures : sans lui, l'écart sous la barre était plus petit de 3 pixels.
+    private const float GlyphCorrection = 1.5f;
+
     private readonly Configuration config;
     private readonly PriceLookup lookup;
     private readonly ItemInfo info;
@@ -287,7 +290,10 @@ public sealed unsafe class PriceTooltip : IDisposable
         // La barre se place à mi-chemin entre le bas du dernier texte du jeu et le haut des prix. L'espace que le jeu
         // laisse sous son dernier texte varie d'un objet à l'autre : un décalage fixe ne tombait pas toujours au milieu.
         var gameBottom = LastGameTextBottom(tooltip, node, textTop);
-        var y = origin.Y + (gameBottom is { } bottom ? (bottom + textTop) / 2f : textTop - SeparatorAboveText * scale);
+        // Le texte du jeu laisse un peu de vide sous ses lettres : la barre remonte d'autant pour que l'écart visible
+        // soit le même des deux côtés. Elle est calée sur un pixel entier pour rester nette.
+        var middle = gameBottom is { } bottom ? (bottom + textTop) / 2f - GlyphCorrection * scale : textTop - SeparatorAboveText * scale;
+        var y = MathF.Floor(origin.Y + middle) + 0.5f;
         var left = origin.X + tooltip->X + 16f * scale;
         var right = origin.X + tooltip->X + (tooltip->WindowNode->AtkResNode.Width - 16f) * scale;
         if (right <= left)
