@@ -282,7 +282,12 @@ public sealed unsafe class PriceTooltip : IDisposable
 
         var scale = tooltip->Scale;
         var origin = ImGuiHelpers.MainViewport.Pos;
-        var y = origin.Y + node->AtkResNode.ScreenY - SeparatorAboveText * scale;
+        var textTop = node->AtkResNode.ScreenY;
+
+        // La barre se place à mi-chemin entre le bas du dernier texte du jeu et le haut des prix. L'espace que le jeu
+        // laisse sous son dernier texte varie d'un objet à l'autre : un décalage fixe ne tombait pas toujours au milieu.
+        var gameBottom = LastGameTextBottom(tooltip, node, textTop);
+        var y = origin.Y + (gameBottom is { } bottom ? (bottom + textTop) / 2f : textTop - SeparatorAboveText * scale);
         var left = origin.X + tooltip->X + 16f * scale;
         var right = origin.X + tooltip->X + (tooltip->WindowNode->AtkResNode.Width - 16f) * scale;
         if (right <= left)
@@ -290,6 +295,44 @@ public sealed unsafe class PriceTooltip : IDisposable
 
         var color = ImGui.GetColorU32(new Vector4(0.80f, 0.74f, 0.60f, 0.45f));
         ImGui.GetBackgroundDrawList().AddLine(new Vector2(left, y), new Vector2(right, y), color, MathF.Max(1f, scale));
+    }
+
+    /// <summary>Le bas, à l'écran, du texte du jeu le plus bas situé au-dessus des prix.</summary>
+    private static float? LastGameTextBottom(AtkUnitBase* tooltip, AtkTextNode* prices, float pricesTop)
+    {
+        float? bottom = null;
+        for (var i = 0; i < tooltip->UldManager.NodeListCount; i++)
+        {
+            var node = tooltip->UldManager.NodeList[i];
+            if (node == null || node == (AtkResNode*)prices || node->Type != NodeType.Text || node->Height == 0)
+                continue;
+            if (!IsShown(node))
+                continue;
+            // Un texte vide prend de la place sans rien afficher.
+            var text = (AtkTextNode*)node;
+            if (text->NodeText.Length == 0)
+                continue;
+
+            var nodeBottom = node->ScreenY + node->Height * node->ScaleY * tooltip->Scale;
+            if (node->ScreenY >= pricesTop || nodeBottom > pricesTop)
+                continue;
+            if (bottom == null || nodeBottom > bottom)
+                bottom = nodeBottom;
+        }
+
+        return bottom;
+    }
+
+    // Visible lui-même et tous ses parents.
+    private static bool IsShown(AtkResNode* node)
+    {
+        for (var current = node; current != null; current = current->ParentNode)
+        {
+            if (!current->IsVisible())
+                return false;
+        }
+
+        return true;
     }
 
     // ------------------------------------------------------------ Texte
