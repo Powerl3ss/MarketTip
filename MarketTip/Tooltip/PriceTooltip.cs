@@ -365,7 +365,11 @@ public sealed unsafe class PriceTooltip : IDisposable
         for (var i = 0; i < tooltip->UldManager.NodeListCount; i++)
         {
             var node = tooltip->UldManager.NodeList[i];
-            if (node == null || node == (AtkResNode*)prices || node->Height == 0 || node->Type == NodeType.Res)
+            // Seulement ce qui se voit vraiment : textes et images. Les fonds, cadres et zones de clic débordent
+            // souvent sous le dernier texte et faisaient descendre la barre.
+            if (node == null || node == (AtkResNode*)prices || node->Height == 0)
+                continue;
+            if (node->Type != NodeType.Text && node->Type != NodeType.Image)
                 continue;
             if (!IsShown(node))
                 continue;
