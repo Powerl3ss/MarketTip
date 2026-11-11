@@ -4,6 +4,8 @@ using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
+using System.Numerics;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
 using FFXIVClientStructs.FFXIV.Client.System.Memory;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -35,6 +37,9 @@ public sealed unsafe class PriceTooltip : IDisposable
 
     // Espace laissé sous le texte des prix, avant les raccourcis du bas de l'infobulle.
     private const int BottomGap = 8;
+
+    // Espace au-dessus du texte des prix, où passe la barre qui le sépare des informations du jeu.
+    private const int TopGap = 10;
 
     private readonly Configuration config;
     private readonly PriceLookup lookup;
@@ -149,7 +154,7 @@ public sealed unsafe class PriceTooltip : IDisposable
         if (bottom == null)
             return;
 
-        var removed = node->AtkResNode.Height + BottomGap;
+        var removed = node->AtkResNode.Height + BottomGap + TopGap;
         var window = tooltip->WindowNode;
         window->AtkResNode.SetHeight((ushort)(window->AtkResNode.Height - removed));
         window->Component->UldManager.RootNode->SetHeight(window->AtkResNode.Height);
@@ -182,8 +187,8 @@ public sealed unsafe class PriceTooltip : IDisposable
 
         // Le texte se place sous le contenu actuel, et l'infobulle s'agrandit d'autant.
         var window = tooltip->WindowNode;
-        node->AtkResNode.SetYFloat(window->AtkResNode.Height - 8);
-        var added = node->AtkResNode.Height + BottomGap;
+        node->AtkResNode.SetYFloat(window->AtkResNode.Height - 8 + TopGap);
+        var added = node->AtkResNode.Height + BottomGap + TopGap;
         var height = (ushort)(window->AtkResNode.Height + added);
         window->SetHeight(height);
         window->AtkResNode.SetHeight(height);
@@ -252,6 +257,36 @@ public sealed unsafe class PriceTooltip : IDisposable
             node->NextSiblingNode->PrevSiblingNode = node->PrevSiblingNode;
         tooltip->UldManager.UpdateDrawNodeList();
         node->Destroy(true);
+    }
+
+    // ------------------------------------------------------------ Barre de séparation
+
+    /// <summary>
+    /// Dessine une fine barre entre les informations du jeu et les prix, au-dessus de l'infobulle. Elle est tracée par
+    /// Dalamud à chaque image plutôt qu'ajoutée dans l'infobulle : le jeu n'offre pas de trait réutilisable simplement.
+    /// </summary>
+    public void DrawSeparator()
+    {
+        if (!config.Enabled)
+            return;
+        var addon = Plugin.GameGui.GetAddonByName(AddonName);
+        if (addon.IsNull || !addon.IsVisible)
+            return;
+        var tooltip = (AtkUnitBase*)addon.Address;
+        var node = FindNode(tooltip);
+        if (node == null || !node->AtkResNode.IsVisible() || tooltip->WindowNode == null)
+            return;
+
+        var scale = tooltip->Scale;
+        var origin = ImGuiHelpers.MainViewport.Pos;
+        var y = origin.Y + node->AtkResNode.ScreenY - TopGap / 2f * scale;
+        var left = origin.X + tooltip->X + 16f * scale;
+        var right = origin.X + tooltip->X + (tooltip->WindowNode->AtkResNode.Width - 16f) * scale;
+        if (right <= left)
+            return;
+
+        var color = ImGui.GetColorU32(new Vector4(0.80f, 0.74f, 0.60f, 0.45f));
+        ImGui.GetBackgroundDrawList().AddLine(new Vector2(left, y), new Vector2(right, y), color, MathF.Max(1f, scale));
     }
 
     // ------------------------------------------------------------ Texte

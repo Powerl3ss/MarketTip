@@ -91,6 +91,7 @@ public sealed class Plugin : IDalamudPlugin
         CommandManager.AddHandler(ShortCommandName, new CommandInfo(OnCommand) { HelpMessage = "Comme /markettip.", ShowInHelp = false });
 
         PluginInterface.UiBuilder.Draw += WindowSystem.Draw;
+        PluginInterface.UiBuilder.Draw += tooltip.DrawSeparator;
         PluginInterface.UiBuilder.OpenConfigUi += ToggleConfigUi;
         PluginInterface.UiBuilder.OpenMainUi += ToggleConfigUi;
         ClientState.Login += OnLogin;
@@ -113,6 +114,7 @@ public sealed class Plugin : IDalamudPlugin
         ClientState.Login -= OnLogin;
         ClientState.Logout -= OnLogout;
         PluginInterface.UiBuilder.Draw -= WindowSystem.Draw;
+        PluginInterface.UiBuilder.Draw -= tooltip.DrawSeparator;
         PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfigUi;
         PluginInterface.UiBuilder.OpenMainUi -= ToggleConfigUi;
 
