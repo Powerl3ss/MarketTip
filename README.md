@@ -34,10 +34,9 @@ Ventes par jour : 6,5
 - Les réglages tiennent sur une page : où chercher moins cher, et quatre lignes à afficher ou non (dernière vente, ventes par jour, prix moyen, les deux qualités). Un aperçu montre le résultat.
 - **Ctrl+Maj+U** en survolant un objet ouvre sa page Universalis.
 
-## Outils
+## Outil
 
 - **Inventaire** (`/markettip inv`) : la valeur estimée de tes sacs, et ce qui y vaut le plus.
-- **Surveillance** (`/markettip watch`) : une liste d'objets dont les prix sont redemandés toutes les 10 minutes, avec un message dans le chat quand un prix passe sous le seuil que tu fixes.
 
 ## D'où viennent les prix
 
@@ -52,7 +51,6 @@ Le plugin envoie seulement à Universalis le monde de référence et les objets 
 | `/markettip` | Affiche / masque les prix dans les infobulles |
 | `/markettip config` | Ouvre les réglages |
 | `/markettip inv` | Ouvre la valeur de l'inventaire |
-| `/markettip watch` | Ouvre les objets surveillés |
 | `/markettip clear` | Vide les prix en mémoire |
 
 `/mtip` fonctionne aussi.

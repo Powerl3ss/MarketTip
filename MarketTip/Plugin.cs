@@ -62,10 +62,6 @@ public sealed class Plugin : IDalamudPlugin
     private DateTime lastSaddlebagScan = DateTime.MinValue;
     private DateTime lastRetainerScan = DateTime.MinValue;
 
-    // Surveillance : dernière actualisation, et objets dont l'alerte a déjà été annoncée.
-    private static readonly TimeSpan WatchRefreshInterval = TimeSpan.FromMinutes(10);
-    private DateTime lastWatchRefresh = DateTime.MinValue;
-    private readonly HashSet<uint> alerted = new();
     private bool shortcutHeld;
 
     public Plugin()
@@ -80,13 +76,12 @@ public sealed class Plugin : IDalamudPlugin
         // Les prix reçus avant la liste des centres de données d'Universalis peuvent nommer le mauvais centre.
         Universalis.DatacentersLoaded += Lookup.Clear;
         tooltip = new PriceTooltip(Configuration, Lookup, Items);
-        Lookup.Received += OnPricesReceived;
         configWindow = new ConfigWindow(this);
         WindowSystem.AddWindow(configWindow);
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Affiche/masque les prix dans les infobulles. « config » : réglages, « inv » : valeur de l'inventaire, « watch » : surveillance.",
+            HelpMessage = "Affiche/masque les prix dans les infobulles. « config » : réglages, « inv » : valeur de l'inventaire.",
         });
         CommandManager.AddHandler(ShortCommandName, new CommandInfo(OnCommand) { HelpMessage = "Comme /markettip.", ShowInHelp = false });
 
@@ -120,7 +115,6 @@ public sealed class Plugin : IDalamudPlugin
 
         WindowSystem.RemoveAllWindows();
         configWindow.Dispose();
-        Lookup.Received -= OnPricesReceived;
         Universalis.DatacentersLoaded -= Lookup.Clear;
         tooltip.Dispose();
         Lookup.Dispose();
@@ -143,10 +137,6 @@ public sealed class Plugin : IDalamudPlugin
             case "inv":
             case "inventaire":
                 configWindow.OpenInventory();
-                break;
-            case "watch":
-            case "surveillance":
-                configWindow.OpenWatchlist();
                 break;
             case "clear":
                 Lookup.Clear();
@@ -181,50 +171,8 @@ public sealed class Plugin : IDalamudPlugin
         if (world != 0)
             Lookup.SetWorld(world);
 
-        if (world != 0 && DateTime.Now - lastWatchRefresh > WatchRefreshInterval)
-        {
-            lastWatchRefresh = DateTime.Now;
-            RefreshWatchlist();
-        }
-
         CheckUniversalisShortcut();
     }
-
-    // ---------------------------------------------------------------- Surveillance
-
-    /// <summary>Redemande les prix des objets surveillés.</summary>
-    public void RefreshWatchlist()
-    {
-        foreach (var entry in Configuration.Watchlist)
-        {
-            if (Lookup.TryGetMarketableId(entry.ItemId, out var id, out _))
-                Lookup.Get(id, refresh: true);
-        }
-    }
-
-    // Des prix arrivent : un message dans le chat si un objet surveillé passe sous son seuil.
-    // Une seule fois, tant que le prix n'est pas remonté au-dessus.
-    private void OnPricesReceived(IReadOnlyDictionary<uint, MarketData> received) =>
-        Framework.RunOnFrameworkThread(() =>
-        {
-            foreach (var entry in Configuration.Watchlist)
-            {
-                if (entry.Threshold <= 0 || !received.TryGetValue(entry.ItemId, out var data))
-                    continue;
-                var best = TooltipText.BestListing(data, Configuration.SearchScope);
-                if (!best.HasValue || best.Value.Price > entry.Threshold)
-                {
-                    alerted.Remove(entry.ItemId);
-                    continue;
-                }
-
-                if (!alerted.Add(entry.ItemId))
-                    continue;
-                var listing = best.Value;
-                var place = string.IsNullOrEmpty(listing.Datacenter) ? listing.World : $"{listing.World} ({listing.Datacenter})";
-                Print($"{Items.Name(entry.ItemId)} : {TooltipText.Gil(listing.Price)} sur {place}, sous ton seuil de {TooltipText.Gil(entry.Threshold)}.");
-            }
-        });
 
     // ---------------------------------------------------------------- Raccourci Universalis
 

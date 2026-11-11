@@ -31,29 +31,6 @@ public sealed unsafe class ItemInfo
     public string Name(uint itemId) =>
         items.GetRowOrDefault(itemId) is { } item ? item.Name.ExtractText() : $"Objet {itemId}";
 
-    /// <summary>Les objets vendables au marché dont le nom contient le texte cherché.</summary>
-    public List<(uint ItemId, string Name)> Search(string text, int max)
-    {
-        var found = new List<(uint, string)>();
-        text = text.Trim();
-        if (text.Length < 2)
-            return found;
-
-        foreach (var item in items)
-        {
-            if (item.ItemSearchCategory.RowId == 0)
-                continue;
-            var name = item.Name.ExtractText();
-            if (!name.Contains(text, StringComparison.OrdinalIgnoreCase))
-                continue;
-            found.Add((item.RowId, name));
-            if (found.Count >= max)
-                break;
-        }
-
-        return found;
-    }
-
     /// <summary>Prix de rachat par un marchand. La haute qualité se revend 10 % plus cher.</summary>
     public long VendorPrice(uint itemId, bool hq)
     {

@@ -17,17 +17,22 @@ namespace MarketTip.Windows;
 /// <summary>Fenêtre de réglages : barre de navigation à gauche, pages à droite. Même cadre que les autres plugins.</summary>
 public sealed partial class ConfigWindow : Window, IDisposable
 {
-    private enum Page { Home, Inventory, Watch, Appearance, About }
+    private enum Page { Home, Inventory, Appearance, About }
 
     // La navigation, rangée par thème : chaque groupe a son petit titre dans la barre latérale.
     private static readonly (string Group, (Page Page, FontAwesomeIcon Icon, string Label)[] Items)[] Navigation =
     {
-        ("MarketTip", new[]
+        ("Général", new[]
         {
-            (Page.Home, FontAwesomeIcon.Coins, "Réglages"),
+            (Page.Home, FontAwesomeIcon.Coins, "Prix affichés"),
             (Page.Inventory, FontAwesomeIcon.BoxOpen, "Inventaire"),
-            (Page.Watch, FontAwesomeIcon.Bell, "Surveillance"),
-            (Page.Appearance, FontAwesomeIcon.Palette, "Apparence"),
+        }),
+        ("Apparence", new[]
+        {
+            (Page.Appearance, FontAwesomeIcon.Palette, "Fenêtre"),
+        }),
+        ("Plus", new[]
+        {
             (Page.About, FontAwesomeIcon.InfoCircle, "À propos"),
         }),
     };
@@ -43,13 +48,6 @@ public sealed partial class ConfigWindow : Window, IDisposable
     public void OpenInventory()
     {
         page = Page.Inventory;
-        IsOpen = true;
-    }
-
-    /// <summary>Ouvre la fenêtre sur les objets surveillés.</summary>
-    public void OpenWatchlist()
-    {
-        page = Page.Watch;
         IsOpen = true;
     }
 
@@ -368,7 +366,6 @@ public sealed partial class ConfigWindow : Window, IDisposable
         {
             case Page.Home: DrawHomePage(); break;
             case Page.Inventory: DrawInventoryPage(); break;
-            case Page.Watch: DrawWatchPage(); break;
             case Page.Appearance: DrawAppearancePage(); break;
             case Page.About: DrawAboutPage(); break;
         }

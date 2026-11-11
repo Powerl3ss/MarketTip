@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Numerics;
 using Dalamud.Configuration;
 using MarketTip.Core;
@@ -34,8 +33,6 @@ public class Configuration : IPluginConfiguration, ITooltipOptions
     /// <summary>Ctrl+Maj+U pendant le survol d'un objet ouvre sa page Universalis.</summary>
     public bool UniversalisShortcut => true;
 
-    // --- Surveillance ---
-    public List<WatchEntry> Watchlist { get; set; } = new();
 
     // --- Fixes : les prix du monde d'origine, ceux de l'inventaire demandés à l'avance ---
     public bool UseCurrentWorld => false;
@@ -47,12 +44,4 @@ public class Configuration : IPluginConfiguration, ITooltipOptions
     public float SettingsOpacity { get; set; } = 0.80f;
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
-}
-
-/// <summary>Un objet surveillé, avec le prix sous lequel prévenir (0 : pas d'alerte).</summary>
-[Serializable]
-public class WatchEntry
-{
-    public uint ItemId { get; set; }
-    public long Threshold { get; set; }
 }
