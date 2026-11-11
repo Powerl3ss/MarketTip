@@ -19,6 +19,9 @@ public enum SegmentKind
     /// <summary>À remarquer (prix ancien, mieux vaut vendre au marchand) : orangé.</summary>
     Warning,
 
+    /// <summary>Début d'un nouveau paragraphe, séparé du précédent par un petit espace.</summary>
+    Paragraph,
+
     /// <summary>Icône du jeu : autre monde.</summary>
     CrossWorldIcon,
 
@@ -168,7 +171,8 @@ public static class TooltipText
                 return;
             if (HomePrice.Value.Price * (1 - MarketTax) > context.VendorPrice)
                 return;
-            output.Add(new(SegmentKind.Warning, (output.Count > 0 ? "\n" : string.Empty) + $"Autant vendre au marchand ({Gil(context.VendorPrice)})"));
+            output.Add(new(SegmentKind.Paragraph));
+            output.Add(new(SegmentKind.Warning, $"Autant vendre au marchand ({Gil(context.VendorPrice)})"));
         }
 
         // La qualité survolée, sinon l'autre si les deux sont affichées.

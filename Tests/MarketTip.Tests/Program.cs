@@ -124,7 +124,9 @@ internal static class Tests
         var options = new Options { ShowVendorHint = true };
         // 1 500 au marché, soit 1 425 taxe déduite : le marchand à 1 425 fait aussi bien.
         var hint = Build(Data(), options, context: new ItemContext { VendorPrice = 1_425 }).Last();
-        Check(hint.Kind == SegmentKind.Warning && hint.Text == "\nAutant vendre au marchand (1 425" + Gil + ")", hint.Text);
+        Check(hint.Kind == SegmentKind.Warning && hint.Text == "Autant vendre au marchand (1 425" + Gil + ")", hint.Text);
+        var all = Build(Data(), options, context: new ItemContext { VendorPrice = 1_425 });
+        Check(all[^2].Kind == SegmentKind.Paragraph, "paragraphe avant le conseil");
         Check(!Text(Data(), options, context: new ItemContext { VendorPrice = 1_424 }).Contains("marchand"), "le marché rapporte plus");
         Check(!Text(Data(), options, context: new ItemContext { VendorPrice = 0 }).Contains("marchand"), "ne se revend pas");
     }

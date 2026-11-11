@@ -26,6 +26,12 @@ public sealed unsafe class PriceTooltip : IDisposable
     // Identifiant du texte ajouté, choisi loin de ceux du jeu et de ceux de Price Insight.
     private const uint NodeId = 0x4D5401;
 
+    // Second texte, pour le conseil du marchand, séparé des prix par un petit espace.
+    private const uint AdviceNodeId = 0x4D5402;
+
+    // Espace en plus entre les prix et le conseil, comme entre deux paragraphes du jeu (mesuré sur capture).
+    private const int ParagraphGap = 3;
+
     // Nœuds du jeu : le bloc placé en bas de l'infobulle, et un texte dont on copie l'apparence.
     private const uint BottomNodeId = 2;
     private const uint StyleTextNodeId = 44;
@@ -134,19 +140,28 @@ public sealed unsafe class PriceTooltip : IDisposable
 
     // ------------------------------------------------------------ Infobulle
 
-    private static AtkTextNode* FindNode(AtkUnitBase* tooltip)
+    private static AtkTextNode* FindNode(AtkUnitBase* tooltip, uint id = NodeId)
     {
         for (var i = 0; i < tooltip->UldManager.NodeListCount; i++)
         {
             var node = tooltip->UldManager.NodeList[i];
-            if (node != null && node->NodeId == NodeId)
+            if (node != null && node->NodeId == id)
                 return (AtkTextNode*)node;
         }
 
         return null;
     }
 
-    /// <summary>Masque le texte des prix et rend à l'infobulle sa hauteur d'origine.</summary>
+    // Hauteur ajoutée à l'infobulle par les deux textes, d'après ce qui est affiché.
+    private static int AddedHeight(AtkTextNode* prices, AtkTextNode* advice)
+    {
+        var height = prices->AtkResNode.Height + BottomGap + TopGap;
+        if (advice != null && advice->AtkResNode.IsVisible())
+            height += ParagraphGap + advice->AtkResNode.Height;
+        return height;
+    }
+
+    /// <summary>Masque les textes ajoutés et rend à l'infobulle sa hauteur d'origine.</summary>
     private static void Restore(AtkUnitBase* tooltip)
     {
         if (tooltip == null)
@@ -155,12 +170,16 @@ public sealed unsafe class PriceTooltip : IDisposable
         if (node == null || !node->AtkResNode.IsVisible())
             return;
 
+        var advice = FindNode(tooltip, AdviceNodeId);
+        var removed = AddedHeight(node, advice);
         node->AtkResNode.ToggleVisibility(false);
+        if (advice != null)
+            advice->AtkResNode.ToggleVisibility(false);
+
         var bottom = tooltip->GetNodeById(BottomNodeId);
         if (bottom == null)
             return;
 
-        var removed = node->AtkResNode.Height + BottomGap + TopGap;
         var window = tooltip->WindowNode;
         window->AtkResNode.SetHeight((ushort)(window->AtkResNode.Height - removed));
         window->Component->UldManager.RootNode->SetHeight(window->AtkResNode.Height);
@@ -177,24 +196,39 @@ public sealed unsafe class PriceTooltip : IDisposable
         if (bottom == null)
             return;
 
+        // Les prix d'un côté ; ce qui suit un saut de paragraphe (le conseil du marchand) dans un second texte.
+        var split = segments.FindIndex(s => s.Kind == SegmentKind.Paragraph);
+        var prices = split < 0 ? segments : segments.GetRange(0, split);
+        var advice = split < 0 ? new List<Segment>() : segments.GetRange(split + 1, segments.Count - split - 1);
+
         var node = FindNode(tooltip);
         if (node == null)
-            node = CreateNode(tooltip, bottom);
+            node = CreateNode(tooltip, bottom, NodeId);
         if (node == null)
             return;
+        var adviceNode = FindNode(tooltip, AdviceNodeId);
+        if (adviceNode == null && advice.Count > 0)
+            adviceNode = CreateNode(tooltip, bottom, AdviceNodeId);
 
-        node->AtkResNode.ToggleVisibility(true);
-        // Le jeu lit le texte jusqu'à un octet nul : il est ajouté à la fin.
-        var encoded = ToSeString(segments).Encode();
-        var text = new byte[encoded.Length + 1];
-        encoded.CopyTo(text, 0);
-        node->SetText(text);
-        node->ResizeNodeForCurrentText();
-
-        // Le texte se place sous le contenu actuel, et l'infobulle s'agrandit d'autant.
         var window = tooltip->WindowNode;
+        SetText(node, prices);
         node->AtkResNode.SetYFloat(window->AtkResNode.Height - 8 + TopGap);
-        var added = node->AtkResNode.Height + BottomGap + TopGap;
+
+        if (adviceNode != null)
+        {
+            if (advice.Count > 0)
+            {
+                SetText(adviceNode, advice);
+                adviceNode->AtkResNode.SetYFloat(node->AtkResNode.Y + node->AtkResNode.Height + ParagraphGap);
+            }
+            else
+            {
+                adviceNode->AtkResNode.ToggleVisibility(false);
+            }
+        }
+
+        // L'infobulle s'agrandit d'autant.
+        var added = AddedHeight(node, adviceNode);
         var height = (ushort)(window->AtkResNode.Height + added);
         window->SetHeight(height);
         window->AtkResNode.SetHeight(height);
@@ -209,7 +243,18 @@ public sealed unsafe class PriceTooltip : IDisposable
             tooltip->SetPosition(tooltip->X, (short)Math.Max(0, tooltip->Y - overflow));
     }
 
-    private static AtkTextNode* CreateNode(AtkUnitBase* tooltip, AtkResNode* bottom)
+    private static void SetText(AtkTextNode* node, List<Segment> segments)
+    {
+        node->AtkResNode.ToggleVisibility(true);
+        // Le jeu lit le texte jusqu'à un octet nul : il est ajouté à la fin.
+        var encoded = ToSeString(segments).Encode();
+        var text = new byte[encoded.Length + 1];
+        encoded.CopyTo(text, 0);
+        node->SetText(text);
+        node->ResizeNodeForCurrentText();
+    }
+
+    private static AtkTextNode* CreateNode(AtkUnitBase* tooltip, AtkResNode* bottom, uint id)
     {
         var style = tooltip->GetTextNodeById(StyleTextNodeId);
         if (style == null)
@@ -220,7 +265,7 @@ public sealed unsafe class PriceTooltip : IDisposable
             return null;
 
         node->AtkResNode.Type = NodeType.Text;
-        node->AtkResNode.NodeId = NodeId;
+        node->AtkResNode.NodeId = id;
         node->AtkResNode.NodeFlags = NodeFlags.AnchorLeft | NodeFlags.AnchorTop;
         node->AtkResNode.X = 16;
         node->AtkResNode.Width = 50;
@@ -243,7 +288,7 @@ public sealed unsafe class PriceTooltip : IDisposable
         return node;
     }
 
-    /// <summary>Retire le texte ajouté de l'infobulle (arrêt du plugin).</summary>
+    /// <summary>Retire les textes ajoutés de l'infobulle (arrêt du plugin).</summary>
     private static void RemoveNode()
     {
         var addon = Plugin.GameGui.GetAddonByName(AddonName);
@@ -251,18 +296,21 @@ public sealed unsafe class PriceTooltip : IDisposable
             return;
         var tooltip = (AtkUnitBase*)addon.Address;
         Restore(tooltip);
-        var node = (AtkResNode*)FindNode(tooltip);
-        if (node == null)
-            return;
+        foreach (var id in new[] { NodeId, AdviceNodeId })
+        {
+            var node = (AtkResNode*)FindNode(tooltip, id);
+            if (node == null)
+                continue;
 
-        if (node->ParentNode != null && node->ParentNode->ChildNode == node)
-            node->ParentNode->ChildNode = node->PrevSiblingNode;
-        if (node->PrevSiblingNode != null)
-            node->PrevSiblingNode->NextSiblingNode = node->NextSiblingNode;
-        if (node->NextSiblingNode != null)
-            node->NextSiblingNode->PrevSiblingNode = node->PrevSiblingNode;
-        tooltip->UldManager.UpdateDrawNodeList();
-        node->Destroy(true);
+            if (node->ParentNode != null && node->ParentNode->ChildNode == node)
+                node->ParentNode->ChildNode = node->PrevSiblingNode;
+            if (node->PrevSiblingNode != null)
+                node->PrevSiblingNode->NextSiblingNode = node->NextSiblingNode;
+            if (node->NextSiblingNode != null)
+                node->NextSiblingNode->PrevSiblingNode = node->PrevSiblingNode;
+            tooltip->UldManager.UpdateDrawNodeList();
+            node->Destroy(true);
+        }
     }
 
     // ------------------------------------------------------------ Barre de séparation
@@ -366,6 +414,8 @@ public sealed unsafe class PriceTooltip : IDisposable
         {
             switch (segment.Kind)
             {
+                case SegmentKind.Paragraph:
+                    break;
                 case SegmentKind.Text:
                     payloads.Add(new TextPayload(segment.Text));
                     break;

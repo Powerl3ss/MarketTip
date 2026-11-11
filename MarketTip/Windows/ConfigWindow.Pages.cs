@@ -22,6 +22,9 @@ public sealed partial class ConfigWindow
 
     private bool previewHq;
 
+    // Espace en plus avant le conseil du marchand, comme dans l'infobulle du jeu.
+    private static float ParagraphGap => 3f * S;
+
     // =================================================================== Prix affichés
 
     private void DrawHomePage()
@@ -133,9 +136,18 @@ public sealed partial class ConfigWindow
         var lineGap = 3f * S;
         // Une première ligne nomme l'objet d'exemple et sa qualité, pour voir ce que le choix du dessous change.
         var lines = 2;
+        var paragraphs = 0;
         foreach (var segment in segments)
+        {
             lines += segment.Text.Split('\n').Length - 1;
-        var height = lines * ImGui.GetTextLineHeight() + (lines - 1) * lineGap + pad.Y * 2f;
+            if (segment.Kind == SegmentKind.Paragraph)
+            {
+                lines++;
+                paragraphs++;
+            }
+        }
+
+        var height = lines * ImGui.GetTextLineHeight() + (lines - 1) * lineGap + paragraphs * ParagraphGap + pad.Y * 2f;
 
         var drawList = ImGui.GetWindowDrawList();
         var start = ImGui.GetCursorScreenPos();
@@ -162,6 +174,13 @@ public sealed partial class ConfigWindow
         var lineStart = true;
         foreach (var segment in segments)
         {
+            if (segment.Kind == SegmentKind.Paragraph)
+            {
+                ImGui.Dummy(new Vector2(0f, ParagraphGap - ImGui.GetStyle().ItemSpacing.Y));
+                lineStart = true;
+                continue;
+            }
+
             var (text, color) = segment.Kind switch
             {
                 SegmentKind.Highlight => (segment.Text, PreviewHighlight),
