@@ -39,7 +39,10 @@ public sealed unsafe class PriceTooltip : IDisposable
     private const int BottomGap = 8;
 
     // Espace au-dessus du texte des prix, où passe la barre qui le sépare des informations du jeu.
-    private const int TopGap = 10;
+    private const int TopGap = 16;
+
+    // Distance entre la barre et le texte des prix.
+    private const float SeparatorAboveText = 9f;
 
     private readonly Configuration config;
     private readonly PriceLookup lookup;
@@ -279,7 +282,7 @@ public sealed unsafe class PriceTooltip : IDisposable
 
         var scale = tooltip->Scale;
         var origin = ImGuiHelpers.MainViewport.Pos;
-        var y = origin.Y + node->AtkResNode.ScreenY - TopGap / 2f * scale;
+        var y = origin.Y + node->AtkResNode.ScreenY - SeparatorAboveText * scale;
         var left = origin.X + tooltip->X + 16f * scale;
         var right = origin.X + tooltip->X + (tooltip->WindowNode->AtkResNode.Width - 16f) * scale;
         if (right <= left)
