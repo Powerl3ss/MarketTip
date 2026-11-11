@@ -219,7 +219,9 @@ public static class TooltipText
             // Une seule qualité ici, pour que la ligne reste courte.
             var isHq = hq ? qualities.Hq.HasValue : !qualities.Nq.HasValue;
             Line($"Moins cher sur {place} : ");
-            output.Add(new(SegmentKind.Highlight, (isHq ? HqIcon.ToString() : string.Empty) + Gil(listing.Price)));
+            // Avec les deux qualités, le jaune est réservé à celle choisie, comme sur les autres lignes.
+            var yellow = !options.ShowBothQualities || isHq == options.HighlightHq;
+            output.Add(new(yellow ? SegmentKind.Highlight : SegmentKind.Text, (isHq ? HqIcon.ToString() : string.Empty) + Gil(listing.Price)));
             if (options.ShowSavings && home.HasValue && home.Value.Price > 0)
             {
                 var saved = (int)Math.Round((home.Value.Price - listing.Price) * 100d / home.Value.Price);

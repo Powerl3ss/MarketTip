@@ -222,6 +222,11 @@ internal static class Tests
         Equal("Prix sur Omega : 1 500" + Gil + " / " + Hq + "2 500" + Gil, string.Concat(segments.Select(s => s.Text)));
         Equal(Hq + "2 500" + Gil, segments.Single(s => s.Kind == SegmentKind.Highlight).Text);
 
+        // Prix HQ en jaune, objet sans HQ : rien en jaune, « Moins cher » compris.
+        var noHq = Data(world: Q(L(1_500, "Omega")), dc: Q(L(1_100, "Spriggan")));
+        Check(!Build(noHq, new Options { ShowBothQualities = true, HighlightHq = true }).Any(s => s.Kind == SegmentKind.Highlight), "aucun jaune sans HQ");
+        Check(Build(noHq, new Options { ShowBothQualities = true }).Count(s => s.Kind == SegmentKind.Highlight) == 2, "prix classique en jaune partout");
+
         // Le prix classique en jaune, même en survolant un objet HQ.
         var classic = Build(Data(), new Options { ShowBothQualities = true }, hq: true);
         Equal("1 500" + Gil, classic.Single(s => s.Kind == SegmentKind.Highlight).Text);
