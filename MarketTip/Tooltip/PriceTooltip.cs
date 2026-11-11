@@ -41,8 +41,8 @@ public sealed unsafe class PriceTooltip : IDisposable
     // Espace au-dessus du texte des prix, où passe la barre qui le sépare des informations du jeu.
     private const int TopGap = 16;
 
-    // Distance entre la barre et le texte des prix.
-    private const float SeparatorAboveText = 9f;
+    // Distance entre la barre et le texte des prix : la barre tombe ainsi à égale distance des deux textes.
+    private const float SeparatorAboveText = 12f;
 
     private readonly Configuration config;
     private readonly PriceLookup lookup;
