@@ -287,9 +287,9 @@ public sealed unsafe class PriceTooltip : IDisposable
         var origin = ImGuiHelpers.MainViewport.Pos;
         var textTop = node->AtkResNode.ScreenY;
 
-        // La barre se place à mi-chemin entre le bas du dernier texte du jeu et le haut des prix. L'espace que le jeu
-        // laisse sous son dernier texte varie d'un objet à l'autre : un décalage fixe ne tombait pas toujours au milieu.
-        var gameBottom = LastGameTextBottom(tooltip, node, textTop);
+        // La barre se place à mi-chemin entre le bas du dernier élément affiché (texte, image, ajout d'un autre plugin)
+        // et le haut des prix. Recalculée à chaque image, elle suit ce que les autres plugins ajoutent.
+        var gameBottom = LastContentBottom(tooltip, node, textTop);
         // Le texte du jeu laisse un peu de vide sous ses lettres : la barre remonte d'autant pour que l'écart visible
         // soit le même des deux côtés. Elle est calée sur un pixel entier pour rester nette.
         var middle = gameBottom is { } bottom ? (bottom + textTop) / 2f - GlyphCorrection * scale : textTop - SeparatorAboveText * scale;
@@ -306,30 +306,43 @@ public sealed unsafe class PriceTooltip : IDisposable
         ImGui.GetBackgroundDrawList().AddRectFilled(new Vector2(MathF.Round(left), y), new Vector2(MathF.Round(right), y + thickness), color);
     }
 
-    /// <summary>Le bas, à l'écran, du texte du jeu le plus bas situé au-dessus des prix.</summary>
-    private static float? LastGameTextBottom(AtkUnitBase* tooltip, AtkTextNode* prices, float pricesTop)
+    /// <summary>
+    /// Le bas, à l'écran, du contenu le plus bas situé au-dessus des prix : texte, image (portrait d'une mascotte,
+    /// d'une monture...) ou ajout d'un autre plugin. Les blocs qui ne font que contenir d'autres éléments, et le cadre
+    /// de l'infobulle, qui descend sous les prix, ne comptent pas.
+    /// </summary>
+    private static float? LastContentBottom(AtkUnitBase* tooltip, AtkTextNode* prices, float pricesTop)
     {
         float? bottom = null;
         for (var i = 0; i < tooltip->UldManager.NodeListCount; i++)
         {
             var node = tooltip->UldManager.NodeList[i];
-            if (node == null || node == (AtkResNode*)prices || node->Type != NodeType.Text || node->Height == 0)
+            if (node == null || node == (AtkResNode*)prices || node->Height == 0 || node->Type == NodeType.Res)
                 continue;
             if (!IsShown(node))
                 continue;
             // Un texte vide prend de la place sans rien afficher.
-            var text = (AtkTextNode*)node;
-            if (text->NodeText.Length == 0)
+            if (node->Type == NodeType.Text && ((AtkTextNode*)node)->NodeText.Length == 0)
                 continue;
 
-            var nodeBottom = node->ScreenY + node->Height * node->ScaleY * tooltip->Scale;
-            if (node->ScreenY >= pricesTop || nodeBottom > pricesTop)
+            var nodeBottom = node->ScreenY + node->Height * ScreenScale(tooltip, node);
+            // Un demi-pixel de marge : les arrondis du jeu ne doivent pas écarter le dernier élément.
+            if (node->ScreenY >= pricesTop || nodeBottom > pricesTop + 0.5f)
                 continue;
             if (bottom == null || nodeBottom > bottom)
                 bottom = nodeBottom;
         }
 
         return bottom;
+    }
+
+    // L'échelle d'un élément à l'écran : celle de l'infobulle et de chacun de ses blocs parents.
+    private static float ScreenScale(AtkUnitBase* tooltip, AtkResNode* node)
+    {
+        var scale = tooltip->Scale;
+        for (var current = node; current != null && current != tooltip->RootNode; current = current->ParentNode)
+            scale *= current->ScaleY;
+        return scale;
     }
 
     // Visible lui-même et tous ses parents.
