@@ -293,14 +293,17 @@ public sealed unsafe class PriceTooltip : IDisposable
         // Le texte du jeu laisse un peu de vide sous ses lettres : la barre remonte d'autant pour que l'écart visible
         // soit le même des deux côtés. Elle est calée sur un pixel entier pour rester nette.
         var middle = gameBottom is { } bottom ? (bottom + textTop) / 2f - GlyphCorrection * scale : textTop - SeparatorAboveText * scale;
-        var y = MathF.Floor(origin.Y + middle) + 0.5f;
+        var y = MathF.Round(origin.Y + middle);
         var left = origin.X + tooltip->X + 16f * scale;
         var right = origin.X + tooltip->X + (tooltip->WindowNode->AtkResNode.Width - 16f) * scale;
         if (right <= left)
             return;
 
+        // Un rectangle plein d'un pixel de haut plutôt qu'une ligne : ImGui décale les lignes d'un demi-pixel
+        // et les adoucit, ce qui les étalait sur deux rangées floues.
         var color = ImGui.GetColorU32(new Vector4(0.80f, 0.74f, 0.60f, 0.45f));
-        ImGui.GetBackgroundDrawList().AddLine(new Vector2(left, y), new Vector2(right, y), color, MathF.Max(1f, scale));
+        var thickness = MathF.Max(1f, MathF.Round(scale));
+        ImGui.GetBackgroundDrawList().AddRectFilled(new Vector2(MathF.Round(left), y), new Vector2(MathF.Round(right), y + thickness), color);
     }
 
     /// <summary>Le bas, à l'écran, du texte du jeu le plus bas situé au-dessus des prix.</summary>
